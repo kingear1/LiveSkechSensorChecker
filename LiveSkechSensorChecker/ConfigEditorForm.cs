@@ -115,14 +115,13 @@ internal sealed class ConfigEditorForm : Form
         };
         _peerGrid.Columns.Add("name", "PC 이름");
         _peerGrid.Columns.Add("ip", "IP");
-        _peerGrid.Columns.Add("processes", "프로세스(콤마구분)");
+        
 
-        var peerProcessButton = new Button { Text = "행 프로세스 선택", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
-        peerProcessButton.Click += (_, _) => PickProcessesForSelectedPeerRow();
+        var peerHelpLabel = new Label { AutoSize = true, Text = "Sub PC 이름/IP만 등록" };
 
         mainLayout.Controls.Add(mainTopTable);
         mainLayout.Controls.Add(peerLabel);
-        mainLayout.Controls.Add(peerProcessButton);
+        mainLayout.Controls.Add(peerHelpLabel);
         mainLayout.Controls.Add(_peerGrid);
         _mainGroup.Controls.Add(mainLayout);
 
@@ -157,22 +156,6 @@ internal sealed class ConfigEditorForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _launchPathText.Text = dialog.FileName;
-        }
-    }
-
-    private void PickProcessesForSelectedPeerRow()
-    {
-        if (_peerGrid.CurrentRow is null || _peerGrid.CurrentRow.IsNewRow)
-        {
-            MessageBox.Show("Peer 목록에서 행을 먼저 선택하세요.", "안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        var current = _peerGrid.CurrentRow.Cells[2].Value?.ToString() ?? string.Empty;
-        using var picker = new ProcessPickerForm(SplitProcesses(current));
-        if (picker.ShowDialog(this) == DialogResult.OK)
-        {
-            _peerGrid.CurrentRow.Cells[2].Value = string.Join(", ", picker.SelectedProcesses);
         }
     }
 
@@ -228,7 +211,7 @@ internal sealed class ConfigEditorForm : Form
         _peerGrid.Rows.Clear();
         foreach (var peer in config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)))
         {
-            _peerGrid.Rows.Add(peer.Name, peer.Ip, string.Join(", ", peer.Processes));
+                        _peerGrid.Rows.Add(peer.Name, peer.Ip);
         }
     }
 
@@ -356,19 +339,17 @@ internal sealed class ConfigEditorForm : Form
 
             var name = row.Cells[0].Value?.ToString()?.Trim() ?? string.Empty;
             var ip = row.Cells[1].Value?.ToString()?.Trim() ?? string.Empty;
-            var processes = SplitProcesses(row.Cells[2].Value?.ToString() ?? string.Empty);
-
-            if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(ip) && processes.Count == 0)
+            if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(ip))
             {
                 continue;
             }
 
-            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(ip) || processes.Count == 0)
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(ip))
             {
-                throw new InvalidOperationException("Sub PC 목록은 이름/IP/프로세스를 모두 입력해야 합니다.");
+                throw new InvalidOperationException("Sub PC 목록은 이름/IP를 모두 입력해야 합니다.");
             }
 
-            list.Add(new PeerConfig { Name = name, Ip = ip, Role = "sub", Processes = processes });
+            list.Add(new PeerConfig { Name = name, Ip = ip, Role = "sub", Processes = [] });
         }
 
         return list;

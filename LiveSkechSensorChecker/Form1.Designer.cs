@@ -22,7 +22,6 @@ namespace LiveSkechSensorChecker
             peerGrid = new DataGridView();
             pcName = new DataGridViewTextBoxColumn();
             role = new DataGridViewTextBoxColumn();
-            process = new DataGridViewTextBoxColumn();
             isRunning = new DataGridViewTextBoxColumn();
             lastHeartbeat = new DataGridViewTextBoxColumn();
             editConfigButton = new Button();
@@ -58,7 +57,7 @@ namespace LiveSkechSensorChecker
             peerGrid.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             peerGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             peerGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            peerGrid.Columns.AddRange(new DataGridViewColumn[] { pcName, role, process, isRunning, lastHeartbeat });
+            peerGrid.Columns.AddRange(new DataGridViewColumn[] { pcName, role, isRunning, lastHeartbeat });
             peerGrid.Location = new Point(16, 86);
             peerGrid.Name = "peerGrid";
             peerGrid.ReadOnly = true;
@@ -77,12 +76,6 @@ namespace LiveSkechSensorChecker
             role.HeaderText = "Role";
             role.Name = "role";
             role.ReadOnly = true;
-            // 
-            // process
-            // 
-            process.HeaderText = "Process";
-            process.Name = "process";
-            process.ReadOnly = true;
             // 
             // isRunning
             // 
@@ -142,7 +135,6 @@ namespace LiveSkechSensorChecker
         private DataGridView peerGrid;
         private DataGridViewTextBoxColumn pcName;
         private DataGridViewTextBoxColumn role;
-        private DataGridViewTextBoxColumn process;
         private DataGridViewTextBoxColumn isRunning;
         private DataGridViewTextBoxColumn lastHeartbeat;
         private Button editConfigButton;

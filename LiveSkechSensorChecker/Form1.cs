@@ -131,8 +131,7 @@ public partial class Form1 : Form
                     BeginInvoke(() =>
                     {
                         SetStatus("SubPC 동작 중 (하트비트 전송)");
-                        var processSummary = string.Join(", ", packet.Processes.Select(p => $"{p.ProcessName}:{(p.IsRunning ? "정상" : "비정상")}"));
-                        AppendLog($"전송 -> {endpoint.Address}:{endpoint.Port} / PC={packet.PcName} / {processSummary}");
+                        AppendLog($"전송 -> {endpoint.Address}:{endpoint.Port} / PC={packet.PcName} / 상태={(packet.IsHealthy ? "정상" : "비정상")}");
                         RefreshSubGrid(packet);
                     });
                 }
@@ -152,20 +151,15 @@ public partial class Form1 : Form
 
     private HeartbeatPacket BuildLocalHeartbeat()
     {
-        var processStates = _config.LocalMonitoring.Processes
-            .Select(p => new ProcessState
-            {
-                ProcessName = p,
-                IsRunning = Process.GetProcessesByName(p).Length > 0
-            })
-            .ToList();
+        var allHealthy = _config.LocalMonitoring.Processes
+            .All(processName => Process.GetProcessesByName(processName).Length > 0);
 
         return new HeartbeatPacket
         {
             PcName = _config.LocalMonitoring.PcName,
             Role = _config.Role,
             TimestampUtc = DateTime.UtcNow,
-            Processes = processStates
+            IsHealthy = allHealthy
         };
     }
 
@@ -217,8 +211,7 @@ public partial class Form1 : Form
             return false;
         }
 
-        return peer.Processes.All(processName =>
-            state.Processes.TryGetValue(processName, out var isRunning) && isRunning);
+        return state.IsHealthy;
     }
 
     private void LaunchConfiguredProgramIfNeeded()
@@ -296,7 +289,7 @@ public partial class Form1 : Form
     private void MonitorLocalSub()
     {
         var packet = BuildLocalHeartbeat();
-        var allOk = packet.Processes.All(p => p.IsRunning);
+        var allOk = packet.IsHealthy;
         SetStatus(allOk ? "SubPC 정상 동작" : "SubPC 프로세스 점검 필요");
     }
 
@@ -306,10 +299,7 @@ public partial class Form1 : Form
         var targetPeers = _config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)).ToList();
         foreach (var peer in targetPeers)
         {
-            foreach (var processName in peer.Processes)
-            {
-                peerGrid.Rows.Add(peer.Name, peer.Role, processName, "미수신", "-");
-            }
+            peerGrid.Rows.Add(peer.Name, peer.Role, "미수신", "-");
         }
 
         BuildPeerCheckIndicators(targetPeers);
@@ -382,10 +372,7 @@ public partial class Form1 : Form
     private void InitializePeerGridForSub()
     {
         peerGrid.Rows.Clear();
-        foreach (var processName in _config.LocalMonitoring.Processes)
-        {
-            peerGrid.Rows.Add(_config.LocalMonitoring.PcName, _config.Role, processName, "점검 중", DateTime.Now.ToString("HH:mm:ss"));
-        }
+        peerGrid.Rows.Add(_config.LocalMonitoring.PcName, _config.Role, "점검 중", DateTime.Now.ToString("HH:mm:ss"));
     }
 
     private void RefreshGrid()
@@ -398,27 +385,22 @@ public partial class Form1 : Form
         foreach (DataGridViewRow row in peerGrid.Rows)
         {
             var pc = row.Cells[0].Value?.ToString() ?? string.Empty;
-            var processName = row.Cells[2].Value?.ToString() ?? string.Empty;
-
             if (!_peerStates.TryGetValue(pc, out var state))
             {
-                row.Cells[3].Value = "미수신";
-                row.Cells[4].Value = "-";
+                row.Cells[2].Value = "미수신";
+                row.Cells[3].Value = "-";
                 continue;
             }
 
             if (DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.AlertThresholdSeconds))
             {
-                row.Cells[3].Value = "타임아웃";
-                row.Cells[4].Value = state.LastHeartbeatUtc.ToLocalTime().ToString("HH:mm:ss");
+                row.Cells[2].Value = "타임아웃";
+                row.Cells[3].Value = state.LastHeartbeatUtc.ToLocalTime().ToString("HH:mm:ss");
                 continue;
             }
 
-            if (state.Processes.TryGetValue(processName, out var isRunning))
-            {
-                row.Cells[3].Value = isRunning ? "정상" : "비정상";
-                row.Cells[4].Value = state.LastHeartbeatUtc.ToLocalTime().ToString("HH:mm:ss");
-            }
+            row.Cells[2].Value = state.IsHealthy ? "정상" : "비정상";
+            row.Cells[3].Value = state.LastHeartbeatUtc.ToLocalTime().ToString("HH:mm:ss");
         }
     }
 
@@ -426,15 +408,8 @@ public partial class Form1 : Form
     {
         foreach (DataGridViewRow row in peerGrid.Rows)
         {
-            var processName = row.Cells[2].Value?.ToString() ?? string.Empty;
-            var process = packet.Processes.FirstOrDefault(p => p.ProcessName == processName);
-            if (process is null)
-            {
-                continue;
-            }
-
-            row.Cells[3].Value = process.IsRunning ? "정상" : "비정상";
-            row.Cells[4].Value = DateTime.Now.ToString("HH:mm:ss");
+            row.Cells[2].Value = packet.IsHealthy ? "정상" : "비정상";
+            row.Cells[3].Value = DateTime.Now.ToString("HH:mm:ss");
         }
     }
 
@@ -469,15 +444,11 @@ internal sealed class PeerRuntimeState(string name, string role)
     public string Name { get; } = name;
     public string Role { get; } = role;
     public DateTime LastHeartbeatUtc { get; private set; } = DateTime.MinValue;
-    public Dictionary<string, bool> Processes { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public bool IsHealthy { get; private set; }
 
     public void Update(HeartbeatPacket packet)
     {
         LastHeartbeatUtc = packet.TimestampUtc;
-        Processes.Clear();
-        foreach (var process in packet.Processes)
-        {
-            Processes[process.ProcessName] = process.IsRunning;
-        }
+        IsHealthy = packet.IsHealthy;
     }
 }

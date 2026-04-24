@@ -75,13 +75,7 @@ internal sealed class HeartbeatPacket
     public required string PcName { get; init; }
     public required string Role { get; init; }
     public DateTime TimestampUtc { get; init; }
-    public required List<ProcessState> Processes { get; init; }
-}
-
-internal sealed class ProcessState
-{
-    public required string ProcessName { get; init; }
-    public bool IsRunning { get; init; }
+    public bool IsHealthy { get; init; }
 }
 
 internal static class JsonOptions
