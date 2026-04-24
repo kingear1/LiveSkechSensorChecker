@@ -4,6 +4,7 @@ internal sealed class ConfigEditorForm : Form
 {
     private readonly string _configPath;
     private readonly int _originalAlertThresholdSeconds;
+    private readonly List<PeerConfig> _fixedPeers;
 
     private readonly ComboBox _roleCombo;
     private readonly TextBox _pcNameText;
@@ -27,6 +28,9 @@ internal sealed class ConfigEditorForm : Form
     {
         _configPath = configPath;
         _originalAlertThresholdSeconds = config.AlertThresholdSeconds;
+        _fixedPeers = config.Peers
+            .Select(p => new PeerConfig { Name = p.Name, Ip = p.Ip, Role = p.Role, Processes = [.. p.Processes] })
+            .ToList();
 
         Text = "설정 편집";
         StartPosition = FormStartPosition.CenterParent;
