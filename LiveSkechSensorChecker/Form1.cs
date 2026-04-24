@@ -296,14 +296,23 @@ public partial class Form1 : Form
 
         if (launched is not null)
         {
-                        _ = Task.Run(() => TryBringToFront(launched, mainBehavior.ForceCenterClickFallback));
+            _ = Task.Run(async () =>
+            {
+                TryBringToFront(launched);
+
+                if (mainBehavior.ForceCenterClickFallback)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+                    TryCenterClickFallback();
+                }
+            });
         }
 
         MinimizeToTray();
         AppendLog($"연동 소프트웨어 실행: {path}");
     }
 
-    private static void TryBringToFront(Process process, bool useCenterClickFallback)
+    private static void TryBringToFront(Process process)
     {
         try
         {
@@ -349,18 +358,10 @@ public partial class Form1 : Form
             NativeMethods.BringWindowToTop(handle);
             NativeMethods.SetForegroundWindow(handle);
 
-            if (useCenterClickFallback)
-            {
-                TryCenterClickFallback();
-            }
         }
         catch
         {
             // 포커스 강제는 OS 정책에 따라 실패 가능 (best-effort)
-            if (useCenterClickFallback)
-            {
-                TryCenterClickFallback();
-            }
         }
     }
 
