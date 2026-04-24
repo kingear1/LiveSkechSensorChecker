@@ -341,7 +341,7 @@ public partial class Form1 : Form
                 continue;
             }
 
-            if (DateTime.UtcNow - attemptedAt < TimeSpan.FromSeconds(30))
+            if (DateTime.UtcNow - attemptedAt < TimeSpan.FromSeconds(_config.AlertThresholdSeconds))
             {
                 continue;
             }
