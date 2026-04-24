@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35027.167
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiveSkechSensorChecker", "LiveSkechSensorChecker\LiveSkechSensorChecker.csproj", "{24C6F32C-9C5A-4EB9-8260-45CB717B871B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{24C6F32C-9C5A-4EB9-8260-45CB717B871B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24C6F32C-9C5A-4EB9-8260-45CB717B871B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24C6F32C-9C5A-4EB9-8260-45CB717B871B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24C6F32C-9C5A-4EB9-8260-45CB717B871B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9A813E5D-2D66-401E-B4A2-C7A22E3E52CC}
+	EndGlobalSection
+EndGlobal
