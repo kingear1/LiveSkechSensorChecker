@@ -34,7 +34,8 @@ public partial class Form1 : Form
     {
         try
         {
-            SetStatus($"모드: {_config.Role}");
+            SetStatus($"실행 역할: {(IsMainRole() ? "MainPC" : "SubPC")}");
+            AppendLog($"프로그램 시작 - 역할: {(IsMainRole() ? "MainPC" : "SubPC")}");
             StartReceiver();
 
             if (IsMainRole())
@@ -126,7 +127,8 @@ public partial class Form1 : Form
                     BeginInvoke(() =>
                     {
                         SetStatus("SubPC 동작 중 (하트비트 전송)");
-                        AppendLog($"하트비트 전송: {packet.PcName} ({packet.Processes.Count}개 프로세스)");
+                        var processSummary = string.Join(", ", packet.Processes.Select(p => $"{p.ProcessName}:{(p.IsRunning ? "정상" : "비정상")}"));
+                        AppendLog($"전송 -> {endpoint.Address}:{endpoint.Port} / PC={packet.PcName} / {processSummary}");
                         RefreshSubGrid(packet);
                     });
                 }
@@ -362,20 +364,7 @@ public partial class Form1 : Form
 
     private void editConfigButton_Click(object sender, EventArgs e)
     {
-        string currentJson;
-        try
-        {
-            currentJson = File.Exists(_configPath)
-                ? File.ReadAllText(_configPath)
-                : _config.ToJson();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"현재 설정 읽기 실패: {ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return;
-        }
-
-        using var editor = new ConfigEditorForm(_configPath, currentJson);
+        using var editor = new ConfigEditorForm(_configPath, _config);
         editor.ShowDialog(this);
 
         if (!editor.IsSaved)
