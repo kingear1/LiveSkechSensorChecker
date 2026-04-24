@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Drawing;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -26,6 +27,7 @@ public partial class Form1 : Form
     private UdpClient? _mainCommandSender;
     private System.Windows.Forms.Timer? _monitorTimer;
     private bool _launchedTarget;
+    private bool _allowExitFromTray;
 
     public Form1()
     {
@@ -33,6 +35,7 @@ public partial class Form1 : Form
 
         _configPath = AppConfig.GetConfigPath(AppContext.BaseDirectory);
         _config = AppConfig.Load(AppContext.BaseDirectory);
+        trayIcon.Icon = SystemIcons.Application;
         Shown += Form1_Shown;
         FormClosing += Form1_FormClosing;
     }
@@ -69,6 +72,13 @@ public partial class Form1 : Form
 
     private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
     {
+        if (!_allowExitFromTray && e.CloseReason == CloseReason.UserClosing)
+        {
+            e.Cancel = true;
+            MinimizeToTray();
+            return;
+        }
+
         _cts.Cancel();
         _listener?.Dispose();
         _sender?.Dispose();
@@ -289,6 +299,7 @@ public partial class Form1 : Form
             _ = Task.Run(() => TryBringToFront(launched));
         }
 
+        MinimizeToTray();
         AppendLog($"연동 소프트웨어 실행: {path}");
     }
 
@@ -619,6 +630,50 @@ public partial class Form1 : Form
 
         AppendLog("설정이 저장되었습니다.");
         MessageBox.Show("설정이 저장되었습니다. 변경사항 적용을 위해 프로그램을 재시작해주세요.", "안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void MinimizeToTray()
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        trayIcon.Visible = true;
+        ShowInTaskbar = false;
+        WindowState = FormWindowState.Minimized;
+        Hide();
+        trayIcon.ShowBalloonTip(1500, "LiveSkech Sensor Checker", "백그라운드(트레이)로 전환되었습니다.", ToolTipIcon.Info);
+    }
+
+    private void RestoreFromTray()
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        Show();
+        WindowState = FormWindowState.Normal;
+        ShowInTaskbar = true;
+        Activate();
+    }
+
+    private void trayIcon_MouseDoubleClick(object sender, MouseEventArgs e)
+    {
+        RestoreFromTray();
+    }
+
+    private void trayRestoreMenuItem_Click(object sender, EventArgs e)
+    {
+        RestoreFromTray();
+    }
+
+    private void trayExitMenuItem_Click(object sender, EventArgs e)
+    {
+        _allowExitFromTray = true;
+        trayIcon.Visible = false;
+        Close();
     }
 
     private void SetStatus(string text)

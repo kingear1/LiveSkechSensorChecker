@@ -17,6 +17,7 @@ namespace LiveSkechSensorChecker
 
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             statusLabel = new Label();
             logTextBox = new TextBox();
             peerGrid = new DataGridView();
@@ -26,7 +27,12 @@ namespace LiveSkechSensorChecker
             lastHeartbeat = new DataGridViewTextBoxColumn();
             editConfigButton = new Button();
             peerCheckStatePanel = new FlowLayoutPanel();
+            trayMenu = new ContextMenuStrip(components);
+            trayRestoreMenuItem = new ToolStripMenuItem();
+            trayExitMenuItem = new ToolStripMenuItem();
+            trayIcon = new NotifyIcon(components);
             ((System.ComponentModel.ISupportInitialize)peerGrid).BeginInit();
+            trayMenu.SuspendLayout();
             SuspendLayout();
             // 
             // statusLabel
@@ -115,6 +121,33 @@ namespace LiveSkechSensorChecker
             peerCheckStatePanel.TabIndex = 2;
             peerCheckStatePanel.WrapContents = false;
             // 
+            // trayMenu
+            // 
+            trayMenu.Items.AddRange(new ToolStripItem[] { trayRestoreMenuItem, trayExitMenuItem });
+            trayMenu.Name = "trayMenu";
+            trayMenu.Size = new Size(111, 48);
+            // 
+            // trayRestoreMenuItem
+            // 
+            trayRestoreMenuItem.Name = "trayRestoreMenuItem";
+            trayRestoreMenuItem.Size = new Size(110, 22);
+            trayRestoreMenuItem.Text = "복원";
+            trayRestoreMenuItem.Click += trayRestoreMenuItem_Click;
+            // 
+            // trayExitMenuItem
+            // 
+            trayExitMenuItem.Name = "trayExitMenuItem";
+            trayExitMenuItem.Size = new Size(110, 22);
+            trayExitMenuItem.Text = "종료";
+            trayExitMenuItem.Click += trayExitMenuItem_Click;
+            // 
+            // trayIcon
+            // 
+            trayIcon.ContextMenuStrip = trayMenu;
+            trayIcon.Text = "LiveSkech Sensor Checker";
+            trayIcon.Visible = false;
+            trayIcon.MouseDoubleClick += trayIcon_MouseDoubleClick;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -128,6 +161,7 @@ namespace LiveSkechSensorChecker
             Name = "Form1";
             Text = "LiveSkech Sensor Checker";
             ((System.ComponentModel.ISupportInitialize)peerGrid).EndInit();
+            trayMenu.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -143,5 +177,9 @@ namespace LiveSkechSensorChecker
         private DataGridViewTextBoxColumn lastHeartbeat;
         private Button editConfigButton;
         private FlowLayoutPanel peerCheckStatePanel;
+        private ContextMenuStrip trayMenu;
+        private ToolStripMenuItem trayRestoreMenuItem;
+        private ToolStripMenuItem trayExitMenuItem;
+        private NotifyIcon trayIcon;
     }
 }
