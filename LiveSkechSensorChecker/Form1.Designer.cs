@@ -58,11 +58,11 @@ namespace LiveSkechSensorChecker
             peerGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             peerGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             peerGrid.Columns.AddRange(new DataGridViewColumn[] { pcName, role, isRunning, lastHeartbeat });
-            peerGrid.Location = new Point(16, 86);
+            peerGrid.Location = new Point(16, 126);
             peerGrid.Name = "peerGrid";
             peerGrid.ReadOnly = true;
             peerGrid.RowHeadersVisible = false;
-            peerGrid.Size = new Size(946, 229);
+            peerGrid.Size = new Size(946, 189);
             peerGrid.TabIndex = 3;
             // 
             // pcName
@@ -70,24 +70,28 @@ namespace LiveSkechSensorChecker
             pcName.HeaderText = "PC";
             pcName.Name = "pcName";
             pcName.ReadOnly = true;
+            pcName.SortMode = DataGridViewColumnSortMode.NotSortable;
             // 
             // role
             // 
             role.HeaderText = "Role";
             role.Name = "role";
             role.ReadOnly = true;
+            role.SortMode = DataGridViewColumnSortMode.NotSortable;
             // 
             // isRunning
             // 
             isRunning.HeaderText = "상태";
             isRunning.Name = "isRunning";
             isRunning.ReadOnly = true;
+            isRunning.SortMode = DataGridViewColumnSortMode.NotSortable;
             // 
             // lastHeartbeat
             // 
             lastHeartbeat.HeaderText = "마지막 수신";
             lastHeartbeat.Name = "lastHeartbeat";
             lastHeartbeat.ReadOnly = true;
+            lastHeartbeat.SortMode = DataGridViewColumnSortMode.NotSortable;
             // 
             // editConfigButton
             // 
@@ -107,7 +111,7 @@ namespace LiveSkechSensorChecker
             peerCheckStatePanel.FlowDirection = FlowDirection.TopDown;
             peerCheckStatePanel.Location = new Point(16, 44);
             peerCheckStatePanel.Name = "peerCheckStatePanel";
-            peerCheckStatePanel.Size = new Size(946, 36);
+            peerCheckStatePanel.Size = new Size(946, 76);
             peerCheckStatePanel.TabIndex = 2;
             peerCheckStatePanel.WrapContents = false;
             // 
