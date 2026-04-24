@@ -26,6 +26,7 @@ namespace LiveSkechSensorChecker
             isRunning = new DataGridViewTextBoxColumn();
             lastHeartbeat = new DataGridViewTextBoxColumn();
             editConfigButton = new Button();
+            initialCheckProgressBar = new ProgressBar();
             ((System.ComponentModel.ISupportInitialize)peerGrid).BeginInit();
             SuspendLayout();
             // 
@@ -42,13 +43,13 @@ namespace LiveSkechSensorChecker
             // logTextBox
             // 
             logTextBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            logTextBox.Location = new Point(16, 315);
+            logTextBox.Location = new Point(16, 333);
             logTextBox.Multiline = true;
             logTextBox.Name = "logTextBox";
             logTextBox.ReadOnly = true;
             logTextBox.ScrollBars = ScrollBars.Vertical;
-            logTextBox.Size = new Size(946, 183);
-            logTextBox.TabIndex = 3;
+            logTextBox.Size = new Size(946, 165);
+            logTextBox.TabIndex = 4;
             // 
             // peerGrid
             // 
@@ -58,12 +59,12 @@ namespace LiveSkechSensorChecker
             peerGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             peerGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             peerGrid.Columns.AddRange(new DataGridViewColumn[] { pcName, role, process, isRunning, lastHeartbeat });
-            peerGrid.Location = new Point(16, 48);
+            peerGrid.Location = new Point(16, 66);
             peerGrid.Name = "peerGrid";
             peerGrid.ReadOnly = true;
             peerGrid.RowHeadersVisible = false;
-            peerGrid.Size = new Size(946, 250);
-            peerGrid.TabIndex = 2;
+            peerGrid.Size = new Size(946, 249);
+            peerGrid.TabIndex = 3;
             // 
             // pcName
             // 
@@ -106,11 +107,20 @@ namespace LiveSkechSensorChecker
             editConfigButton.UseVisualStyleBackColor = true;
             editConfigButton.Click += editConfigButton_Click;
             // 
+            // initialCheckProgressBar
+            // 
+            initialCheckProgressBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            initialCheckProgressBar.Location = new Point(16, 44);
+            initialCheckProgressBar.Name = "initialCheckProgressBar";
+            initialCheckProgressBar.Size = new Size(946, 16);
+            initialCheckProgressBar.TabIndex = 2;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(980, 515);
+            Controls.Add(initialCheckProgressBar);
             Controls.Add(editConfigButton);
             Controls.Add(peerGrid);
             Controls.Add(logTextBox);
@@ -133,5 +143,6 @@ namespace LiveSkechSensorChecker
         private DataGridViewTextBoxColumn isRunning;
         private DataGridViewTextBoxColumn lastHeartbeat;
         private Button editConfigButton;
+        private ProgressBar initialCheckProgressBar;
     }
 }

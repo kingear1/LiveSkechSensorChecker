@@ -40,12 +40,14 @@ public partial class Form1 : Form
 
             if (IsMainRole())
             {
+                initialCheckProgressBar.Visible = true;
                 InitializePeerGridForMain();
                 await RunInitialMainCheckAsync();
                 StartMonitorLoop();
             }
             else
             {
+                initialCheckProgressBar.Visible = false;
                 InitializePeerGridForSub();
                 StartSubHeartbeatLoop();
                 StartMonitorLoop();
@@ -173,15 +175,24 @@ public partial class Form1 : Form
         var mainBehavior = _config.MainBehavior ?? throw new InvalidOperationException("mainBehavior 설정이 필요합니다.");
         var targetPeers = _config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)).ToList();
 
-        var timeout = TimeSpan.FromSeconds(mainBehavior.InitialCheckTimeoutSeconds);
+        var timeoutSeconds = Math.Max(1, mainBehavior.InitialCheckTimeoutSeconds);
+        var timeout = TimeSpan.FromSeconds(timeoutSeconds);
         var started = DateTime.UtcNow;
+
+        initialCheckProgressBar.Minimum = 0;
+        initialCheckProgressBar.Maximum = timeoutSeconds;
+        initialCheckProgressBar.Value = 0;
 
         while (DateTime.UtcNow - started < timeout)
         {
             RefreshGrid();
+            var elapsedSeconds = (int)(DateTime.UtcNow - started).TotalSeconds;
+            initialCheckProgressBar.Value = Math.Min(initialCheckProgressBar.Maximum, elapsedSeconds);
+
             var allHealthy = targetPeers.All(IsPeerHealthy);
             if (allHealthy)
             {
+                initialCheckProgressBar.Value = initialCheckProgressBar.Maximum;
                 SetStatus("초기 점검 완료: 모든 SubPC 정상");
                 AppendLog("초기 점검 성공");
                 LaunchConfiguredProgramIfNeeded();
@@ -191,6 +202,7 @@ public partial class Form1 : Form
             await Task.Delay(1000, _cts.Token);
         }
 
+        initialCheckProgressBar.Value = initialCheckProgressBar.Maximum;
         SetStatus("초기 점검 실패: 일부 SubPC 미응답/프로세스 비정상");
         AppendLog("초기 점검 타임아웃");
         MessageBox.Show("초기 점검에서 모든 SubPC의 정상 상태를 확인하지 못했습니다.", "주의", MessageBoxButtons.OK, MessageBoxIcon.Warning);
