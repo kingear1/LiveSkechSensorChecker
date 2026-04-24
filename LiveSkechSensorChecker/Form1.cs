@@ -14,7 +14,8 @@ public partial class Form1 : Form
     private readonly CancellationTokenSource _cts = new();
     private readonly ConcurrentDictionary<string, PeerRuntimeState> _peerStates = new();
     private readonly HashSet<string> _alertedPeers = [];
-    private readonly Dictionary<string, ProgressBar> _initialPeerBars = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Label> _peerCheckLabels = new(StringComparer.OrdinalIgnoreCase);
+    private int _spinnerFrame;
 
     private UdpClient? _listener;
     private UdpClient? _sender;
@@ -41,16 +42,14 @@ public partial class Form1 : Form
 
             if (IsMainRole())
             {
-                initialCheckProgressBar.Visible = true;
-                peerProgressPanel.Visible = true;
+                peerCheckStatePanel.Visible = true;
                 InitializePeerGridForMain();
                 await RunInitialMainCheckAsync();
                 StartMonitorLoop();
             }
             else
             {
-                initialCheckProgressBar.Visible = false;
-                peerProgressPanel.Visible = false;
+                peerCheckStatePanel.Visible = false;
                 InitializePeerGridForSub();
                 StartSubHeartbeatLoop();
                 StartMonitorLoop();
@@ -182,47 +181,25 @@ public partial class Form1 : Form
         var timeout = TimeSpan.FromSeconds(timeoutSeconds);
         var started = DateTime.UtcNow;
 
-        initialCheckProgressBar.Minimum = 0;
-        initialCheckProgressBar.Maximum = timeoutSeconds;
-        initialCheckProgressBar.Value = 0;
-
         while (DateTime.UtcNow - started < timeout)
         {
             RefreshGrid();
-            var elapsedSeconds = (int)(DateTime.UtcNow - started).TotalSeconds;
-            initialCheckProgressBar.Value = Math.Min(initialCheckProgressBar.Maximum, elapsedSeconds);
-
-            foreach (var peer in targetPeers)
-            {
-                if (!_initialPeerBars.TryGetValue(peer.Name, out var bar))
-                {
-                    continue;
-                }
-
-                bar.Value = IsPeerHealthy(peer)
-                    ? bar.Maximum
-                    : Math.Min(bar.Maximum, (int)Math.Round((elapsedSeconds / (double)timeoutSeconds) * 100));
-            }
+            UpdatePeerCheckIndicators(targetPeers);
 
             var allHealthy = targetPeers.All(IsPeerHealthy);
             if (allHealthy)
             {
-                initialCheckProgressBar.Value = initialCheckProgressBar.Maximum;
+                MarkAllPeerChecksAsDone(targetPeers);
                 SetStatus("초기 점검 완료: 모든 SubPC 정상");
                 AppendLog("초기 점검 성공");
                 LaunchConfiguredProgramIfNeeded();
                 return;
             }
 
-            await Task.Delay(1000, _cts.Token);
+            await Task.Delay(250, _cts.Token);
         }
 
-        initialCheckProgressBar.Value = initialCheckProgressBar.Maximum;
-        foreach (var bar in _initialPeerBars.Values)
-        {
-            bar.Value = bar.Maximum;
-        }
-
+        MarkTimeoutPeerChecks(targetPeers);
         SetStatus("초기 점검 실패: 일부 SubPC 미응답/프로세스 비정상");
         AppendLog("초기 점검 타임아웃");
         MessageBox.Show("초기 점검에서 모든 SubPC의 정상 상태를 확인하지 못했습니다.", "주의", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -335,32 +312,70 @@ public partial class Form1 : Form
             }
         }
 
-        BuildPeerProgressBars(targetPeers);
+        BuildPeerCheckIndicators(targetPeers);
     }
 
-    private void BuildPeerProgressBars(List<PeerConfig> peers)
+    private void BuildPeerCheckIndicators(List<PeerConfig> peers)
     {
-        peerProgressPanel.Controls.Clear();
-        _initialPeerBars.Clear();
+        peerCheckStatePanel.Controls.Clear();
+        _peerCheckLabels.Clear();
 
         foreach (var peer in peers)
         {
-            var row = new TableLayoutPanel
+            var label = new Label
             {
-                ColumnCount = 2,
                 AutoSize = true,
-                Width = peerProgressPanel.Width - 25
+                Text = $"{peer.Name}: ⏳ 확인 준비",
+                Margin = new Padding(3)
             };
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            var label = new Label { Text = peer.Name, AutoSize = true, Padding = new Padding(0, 4, 0, 0) };
-            var bar = new ProgressBar { Minimum = 0, Maximum = 100, Value = 0, Width = 760, Height = 16 };
+            peerCheckStatePanel.Controls.Add(label);
+            _peerCheckLabels[peer.Name] = label;
+        }
+    }
 
-            row.Controls.Add(label, 0, 0);
-            row.Controls.Add(bar, 1, 0);
-            peerProgressPanel.Controls.Add(row);
-            _initialPeerBars[peer.Name] = bar;
+    private void UpdatePeerCheckIndicators(List<PeerConfig> peers)
+    {
+        var spinnerFrames = new[] { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
+        var spinner = spinnerFrames[_spinnerFrame % spinnerFrames.Length];
+        _spinnerFrame++;
+
+        foreach (var peer in peers)
+        {
+            if (!_peerCheckLabels.TryGetValue(peer.Name, out var label))
+            {
+                continue;
+            }
+
+            label.Text = IsPeerHealthy(peer)
+                ? $"{peer.Name}: ✅ 확인 완료"
+                : $"{peer.Name}: {spinner} 확인중";
+        }
+    }
+
+    private void MarkAllPeerChecksAsDone(List<PeerConfig> peers)
+    {
+        foreach (var peer in peers)
+        {
+            if (_peerCheckLabels.TryGetValue(peer.Name, out var label))
+            {
+                label.Text = $"{peer.Name}: ✅ 확인 완료";
+            }
+        }
+    }
+
+    private void MarkTimeoutPeerChecks(List<PeerConfig> peers)
+    {
+        foreach (var peer in peers)
+        {
+            if (!_peerCheckLabels.TryGetValue(peer.Name, out var label))
+            {
+                continue;
+            }
+
+            label.Text = IsPeerHealthy(peer)
+                ? $"{peer.Name}: ✅ 확인 완료"
+                : $"{peer.Name}: ⚠️ 확인 실패";
         }
     }
 

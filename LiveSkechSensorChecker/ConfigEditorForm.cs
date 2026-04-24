@@ -48,7 +48,7 @@ internal sealed class ConfigEditorForm : Form
         _sendIntervalSeconds = NewRangeUpDown(1, 60);
 
         _localProcessesText = new TextBox { Dock = DockStyle.Fill };
-        var processPickBtn = new Button { Text = "실행중 프로세스 선택", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
+        var processPickBtn = new Button { Text = "실행중 프로세스", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
         processPickBtn.Click += (_, _) => PickProcessesInto(_localProcessesText);
 
         var commonGroup = new GroupBox { Text = "공통 설정", Dock = DockStyle.Top, AutoSize = true };
@@ -113,7 +113,7 @@ internal sealed class ConfigEditorForm : Form
         _peerGrid.Columns.Add("ip", "IP");
         _peerGrid.Columns.Add("processes", "프로세스(콤마구분)");
 
-        var peerProcessButton = new Button { Text = "선택 행 프로세스 선택", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
+        var peerProcessButton = new Button { Text = "행 프로세스 선택", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
         peerProcessButton.Click += (_, _) => PickProcessesForSelectedPeerRow();
 
         mainLayout.Controls.Add(mainTopTable);
