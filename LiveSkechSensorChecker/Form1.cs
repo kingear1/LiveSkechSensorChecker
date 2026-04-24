@@ -15,6 +15,7 @@ public partial class Form1 : Form
     private readonly ConcurrentDictionary<string, PeerRuntimeState> _peerStates = new();
     private readonly HashSet<string> _alertedPeers = [];
     private readonly Dictionary<string, Label> _peerCheckLabels = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DateTime> _lastRebootAttemptUtc = new(StringComparer.OrdinalIgnoreCase);
     private int _spinnerFrame;
 
     private UdpClient? _listener;
@@ -180,6 +181,11 @@ public partial class Form1 : Form
             RefreshGrid();
             UpdatePeerCheckIndicators(targetPeers);
 
+            foreach (var peer in targetPeers.Where(IsPeerProblem))
+            {
+                AttemptRebootIfDue(peer);
+            }
+
             var allHealthy = targetPeers.All(IsPeerHealthy);
             if (allHealthy)
             {
@@ -196,7 +202,13 @@ public partial class Form1 : Form
         MarkTimeoutPeerChecks(targetPeers);
         SetStatus("초기 점검 실패: 일부 SubPC 미응답/프로세스 비정상");
         AppendLog("초기 점검 타임아웃");
-        MessageBox.Show("초기 점검에서 모든 SubPC의 정상 상태를 확인하지 못했습니다.", "주의", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+        foreach (var peer in targetPeers.Where(IsPeerProblem))
+        {
+            AttemptRebootIfDue(peer);
+            ShowUnresolvedWarning(peer);
+            _alertedPeers.Add(peer.Name);
+        }
     }
 
     private bool IsPeerHealthy(PeerConfig peer)
@@ -262,19 +274,52 @@ public partial class Form1 : Form
         _monitorTimer.Start();
     }
 
-    private bool IsSignalUnhealthyBeyondThreshold(PeerConfig peer)
+
+    private bool IsPeerProblem(PeerConfig peer)
     {
         if (!_peerStates.TryGetValue(peer.Name, out var state))
         {
-            return false;
+            return true;
         }
 
-        if (state.IsHealthy || state.UnhealthySignalSinceUtc is null)
+        var timeout = DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.AlertThresholdSeconds);
+        return timeout || !state.IsHealthy;
+    }
+
+    private void AttemptRebootIfDue(PeerConfig peer)
+    {
+        var now = DateTime.UtcNow;
+        if (_lastRebootAttemptUtc.TryGetValue(peer.Name, out var last) && now - last < TimeSpan.FromMinutes(2))
         {
-            return false;
+            return;
         }
 
-        return DateTime.UtcNow - state.UnhealthySignalSinceUtc.Value >= TimeSpan.FromSeconds(_config.AlertThresholdSeconds);
+        try
+        {
+            var command = $"/m \\\\{peer.Ip} /r /t 0 /f";
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "shutdown",
+                Arguments = command,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+
+            _lastRebootAttemptUtc[peer.Name] = now;
+            AppendLog($"{peer.Name} 재부팅 시도: shutdown {command}");
+        }
+        catch (Exception ex)
+        {
+            _lastRebootAttemptUtc[peer.Name] = now;
+            AppendLog($"{peer.Name} 재부팅 시도 실패: {ex.Message}");
+        }
+    }
+
+    private void ShowUnresolvedWarning(PeerConfig peer)
+    {
+        var message = $"{peer.Name}PC에 이상이 발생하여 재부팅을 시도했지만 해결되지 않았습니다. {peer.Name}PC를 점검해주세요.";
+        AppendLog(message);
+        MessageBox.Show(message, "모니터링 알림", MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
     private void MonitorPeersAndAlert()
@@ -283,30 +328,27 @@ public partial class Form1 : Form
 
         foreach (var peer in targetPeers)
         {
-            if (!_peerStates.TryGetValue(peer.Name, out var state))
+            if (!IsPeerProblem(peer))
+            {
+                _alertedPeers.Remove(peer.Name);
+                continue;
+            }
+
+            AttemptRebootIfDue(peer);
+
+            if (!_lastRebootAttemptUtc.TryGetValue(peer.Name, out var attemptedAt))
             {
                 continue;
             }
 
-            var timeout = DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.AlertThresholdSeconds);
-            var signalUnhealthy = !state.IsHealthy;
-            var signalAlertReady = IsSignalUnhealthyBeyondThreshold(peer);
-
-            var shouldAlert = timeout || signalAlertReady;
-            if (!shouldAlert)
+            if (DateTime.UtcNow - attemptedAt < TimeSpan.FromSeconds(30))
             {
-                if (!signalUnhealthy)
-                {
-                    _alertedPeers.Remove(peer.Name);
-                }
                 continue;
             }
 
             if (_alertedPeers.Add(peer.Name))
             {
-                var message = $"{peer.Name} 상태 이상 감지. PC 점검이 필요합니다.";
-                AppendLog(message);
-                MessageBox.Show(message, "모니터링 알림", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowUnresolvedWarning(peer);
             }
         }
 
