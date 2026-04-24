@@ -76,6 +76,8 @@ internal sealed class HeartbeatPacket
     public required string Role { get; init; }
     public DateTime TimestampUtc { get; init; }
     public bool IsHealthy { get; init; }
+    public string PacketType { get; init; } = "heartbeat";
+    public string? TargetPcName { get; init; }
 }
 
 internal static class JsonOptions

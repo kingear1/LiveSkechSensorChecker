@@ -16,10 +16,13 @@ public partial class Form1 : Form
     private readonly HashSet<string> _alertedPeers = [];
     private readonly Dictionary<string, Label> _peerCheckLabels = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _lastRebootAttemptUtc = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DateTime> _initialProblemDetectedUtc = new(StringComparer.OrdinalIgnoreCase);
     private int _spinnerFrame;
+    private bool _rebootPending;
 
     private UdpClient? _listener;
     private UdpClient? _sender;
+    private UdpClient? _mainCommandSender;
     private System.Windows.Forms.Timer? _monitorTimer;
     private bool _launchedTarget;
 
@@ -68,6 +71,7 @@ public partial class Form1 : Form
         _cts.Cancel();
         _listener?.Dispose();
         _sender?.Dispose();
+        _mainCommandSender?.Dispose();
         _monitorTimer?.Stop();
         _monitorTimer?.Dispose();
     }
@@ -90,6 +94,15 @@ public partial class Form1 : Form
                     var packet = JsonSerializer.Deserialize<HeartbeatPacket>(json, JsonOptions.Default);
                     if (packet is null)
                     {
+                        continue;
+                    }
+
+                    if (string.Equals(packet.PacketType, "reboot", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!IsMainRole() && string.Equals(packet.TargetPcName, _config.LocalMonitoring.PcName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            BeginInvoke(() => HandleRebootCommand());
+                        }
                         continue;
                     }
 
@@ -160,7 +173,8 @@ public partial class Form1 : Form
             PcName = _config.LocalMonitoring.PcName,
             Role = _config.Role,
             TimestampUtc = DateTime.UtcNow,
-            IsHealthy = allHealthy
+            IsHealthy = allHealthy,
+            PacketType = "heartbeat"
         };
     }
 
@@ -181,9 +195,24 @@ public partial class Form1 : Form
             RefreshGrid();
             UpdatePeerCheckIndicators(targetPeers);
 
-            foreach (var peer in targetPeers.Where(IsPeerProblem))
+            foreach (var peer in targetPeers)
             {
-                AttemptRebootIfDue(peer);
+                if (!IsPeerProblem(peer))
+                {
+                    _initialProblemDetectedUtc.Remove(peer.Name);
+                    continue;
+                }
+
+                if (!_initialProblemDetectedUtc.TryGetValue(peer.Name, out var detectedAt))
+                {
+                    _initialProblemDetectedUtc[peer.Name] = DateTime.UtcNow;
+                    continue;
+                }
+
+                if (DateTime.UtcNow - detectedAt >= TimeSpan.FromSeconds(5))
+                {
+                    AttemptRebootIfDue(peer);
+                }
             }
 
             var allHealthy = targetPeers.All(IsPeerHealthy);
@@ -296,22 +325,29 @@ public partial class Form1 : Form
 
         try
         {
-            var command = $"/m \\\\{peer.Ip} /r /t 0 /f";
-            Process.Start(new ProcessStartInfo
+            _mainCommandSender ??= new UdpClient();
+            var commandPacket = new HeartbeatPacket
             {
-                FileName = "shutdown",
-                Arguments = command,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            });
+                PcName = _config.LocalMonitoring.PcName,
+                Role = _config.Role,
+                TimestampUtc = DateTime.UtcNow,
+                IsHealthy = true,
+                PacketType = "reboot",
+                TargetPcName = peer.Name
+            };
+
+            var payload = JsonSerializer.Serialize(commandPacket, JsonOptions.Default);
+            var bytes = Encoding.UTF8.GetBytes(payload);
+            var endpoint = new IPEndPoint(IPAddress.Parse(peer.Ip), _config.Udp.ListenPort);
+            _mainCommandSender.Send(bytes, bytes.Length, endpoint);
 
             _lastRebootAttemptUtc[peer.Name] = now;
-            AppendLog($"{peer.Name} 재부팅 시도: shutdown {command}");
+            AppendLog($"{peer.Name} 재부팅 신호 전송 ({peer.Ip}:{_config.Udp.ListenPort})");
         }
         catch (Exception ex)
         {
             _lastRebootAttemptUtc[peer.Name] = now;
-            AppendLog($"{peer.Name} 재부팅 시도 실패: {ex.Message}");
+            AppendLog($"{peer.Name} 재부팅 신호 전송 실패: {ex.Message}");
         }
     }
 
@@ -320,6 +356,37 @@ public partial class Form1 : Form
         var message = $"{peer.Name}PC에 이상이 발생하여 재부팅을 시도했지만 해결되지 않았습니다. {peer.Name}PC를 점검해주세요.";
         AppendLog(message);
         MessageBox.Show(message, "모니터링 알림", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+
+    private void HandleRebootCommand()
+    {
+        if (_rebootPending)
+        {
+            return;
+        }
+
+        _rebootPending = true;
+        AppendLog("!!! 재부팅 신호 수신: 5초 후 재부팅합니다 !!!");
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), _cts.Token);
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "shutdown",
+                    Arguments = "/r /t 0 /f",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+            }
+            catch (Exception ex)
+            {
+                BeginInvoke(() => AppendLog($"재부팅 실행 실패: {ex.Message}"));
+                _rebootPending = false;
+            }
+        }, _cts.Token);
     }
 
     private void MonitorPeersAndAlert()
