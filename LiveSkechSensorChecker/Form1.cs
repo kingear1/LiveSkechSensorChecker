@@ -435,7 +435,24 @@ public partial class Form1 : Form
     private void AppendLog(string message)
     {
         var line = $"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}";
-        logTextBox.AppendText(line);
+
+        try
+        {
+            if (IsDisposed || Disposing || !IsHandleCreated)
+            {
+                return;
+            }
+
+            logTextBox.AppendText(line);
+        }
+        catch (ObjectDisposedException)
+        {
+            // 종료 중 컨트롤 dispose 상태일 수 있으므로 무시
+        }
+        catch (InvalidOperationException)
+        {
+            // 종료 타이밍의 핸들 상태 이슈는 무시
+        }
     }
 }
 
