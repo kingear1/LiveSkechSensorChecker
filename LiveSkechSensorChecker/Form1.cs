@@ -10,6 +10,7 @@ namespace LiveSkechSensorChecker;
 public partial class Form1 : Form
 {
     private readonly AppConfig _config;
+    private readonly string _configPath;
     private readonly CancellationTokenSource _cts = new();
     private readonly ConcurrentDictionary<string, PeerRuntimeState> _peerStates = new();
     private readonly HashSet<string> _alertedPeers = [];
@@ -23,6 +24,7 @@ public partial class Form1 : Form
     {
         InitializeComponent();
 
+        _configPath = AppConfig.GetConfigPath(AppContext.BaseDirectory);
         _config = AppConfig.Load(AppContext.BaseDirectory);
         Shown += Form1_Shown;
         FormClosing += Form1_FormClosing;
@@ -356,6 +358,33 @@ public partial class Form1 : Form
             row.Cells[3].Value = process.IsRunning ? "정상" : "비정상";
             row.Cells[4].Value = DateTime.Now.ToString("HH:mm:ss");
         }
+    }
+
+    private void editConfigButton_Click(object sender, EventArgs e)
+    {
+        string currentJson;
+        try
+        {
+            currentJson = File.Exists(_configPath)
+                ? File.ReadAllText(_configPath)
+                : _config.ToJson();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"현재 설정 읽기 실패: {ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        using var editor = new ConfigEditorForm(_configPath, currentJson);
+        editor.ShowDialog(this);
+
+        if (!editor.IsSaved)
+        {
+            return;
+        }
+
+        AppendLog("설정이 저장되었습니다.");
+        MessageBox.Show("설정이 저장되었습니다. 변경사항 적용을 위해 프로그램을 재시작해주세요.", "안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void SetStatus(string text)

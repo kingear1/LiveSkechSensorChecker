@@ -25,6 +25,7 @@ namespace LiveSkechSensorChecker
             process = new DataGridViewTextBoxColumn();
             isRunning = new DataGridViewTextBoxColumn();
             lastHeartbeat = new DataGridViewTextBoxColumn();
+            editConfigButton = new Button();
             ((System.ComponentModel.ISupportInitialize)peerGrid).BeginInit();
             SuspendLayout();
             // 
@@ -47,7 +48,7 @@ namespace LiveSkechSensorChecker
             logTextBox.ReadOnly = true;
             logTextBox.ScrollBars = ScrollBars.Vertical;
             logTextBox.Size = new Size(946, 183);
-            logTextBox.TabIndex = 2;
+            logTextBox.TabIndex = 3;
             // 
             // peerGrid
             // 
@@ -62,7 +63,7 @@ namespace LiveSkechSensorChecker
             peerGrid.ReadOnly = true;
             peerGrid.RowHeadersVisible = false;
             peerGrid.Size = new Size(946, 250);
-            peerGrid.TabIndex = 1;
+            peerGrid.TabIndex = 2;
             // 
             // pcName
             // 
@@ -94,11 +95,23 @@ namespace LiveSkechSensorChecker
             lastHeartbeat.Name = "lastHeartbeat";
             lastHeartbeat.ReadOnly = true;
             // 
+            // editConfigButton
+            // 
+            editConfigButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            editConfigButton.Location = new Point(832, 10);
+            editConfigButton.Name = "editConfigButton";
+            editConfigButton.Size = new Size(130, 30);
+            editConfigButton.TabIndex = 1;
+            editConfigButton.Text = "설정 편집";
+            editConfigButton.UseVisualStyleBackColor = true;
+            editConfigButton.Click += editConfigButton_Click;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(980, 515);
+            Controls.Add(editConfigButton);
             Controls.Add(peerGrid);
             Controls.Add(logTextBox);
             Controls.Add(statusLabel);
@@ -119,5 +132,6 @@ namespace LiveSkechSensorChecker
         private DataGridViewTextBoxColumn process;
         private DataGridViewTextBoxColumn isRunning;
         private DataGridViewTextBoxColumn lastHeartbeat;
+        private Button editConfigButton;
     }
 }

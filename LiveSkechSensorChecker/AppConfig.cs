@@ -12,15 +12,22 @@ internal sealed class AppConfig
     public int HeartbeatIntervalSeconds { get; init; } = 2;
     public int AlertThresholdSeconds { get; init; } = 10;
 
+    public static string GetConfigPath(string basePath) => Path.Combine(basePath, "config.json");
+
     public static AppConfig Load(string basePath)
     {
-        var path = Path.Combine(basePath, "config.json");
+        var path = GetConfigPath(basePath);
         if (!File.Exists(path))
         {
             throw new FileNotFoundException("config.json 파일을 찾을 수 없습니다.", path);
         }
 
         var json = File.ReadAllText(path);
+        return Parse(json);
+    }
+
+    public static AppConfig Parse(string json)
+    {
         var config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions.Default);
         if (config is null)
         {
@@ -29,6 +36,10 @@ internal sealed class AppConfig
 
         return config;
     }
+
+    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions.Default);
+
+    public void Save(string path) => File.WriteAllText(path, ToJson());
 }
 
 internal sealed class UdpConfig
