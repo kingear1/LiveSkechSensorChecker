@@ -14,6 +14,7 @@ public partial class Form1 : Form
     private readonly CancellationTokenSource _cts = new();
     private readonly ConcurrentDictionary<string, PeerRuntimeState> _peerStates = new();
     private readonly HashSet<string> _alertedPeers = [];
+    private readonly Dictionary<string, ProgressBar> _initialPeerBars = new(StringComparer.OrdinalIgnoreCase);
 
     private UdpClient? _listener;
     private UdpClient? _sender;
@@ -41,6 +42,7 @@ public partial class Form1 : Form
             if (IsMainRole())
             {
                 initialCheckProgressBar.Visible = true;
+                peerProgressPanel.Visible = true;
                 InitializePeerGridForMain();
                 await RunInitialMainCheckAsync();
                 StartMonitorLoop();
@@ -48,6 +50,7 @@ public partial class Form1 : Form
             else
             {
                 initialCheckProgressBar.Visible = false;
+                peerProgressPanel.Visible = false;
                 InitializePeerGridForSub();
                 StartSubHeartbeatLoop();
                 StartMonitorLoop();
@@ -189,6 +192,18 @@ public partial class Form1 : Form
             var elapsedSeconds = (int)(DateTime.UtcNow - started).TotalSeconds;
             initialCheckProgressBar.Value = Math.Min(initialCheckProgressBar.Maximum, elapsedSeconds);
 
+            foreach (var peer in targetPeers)
+            {
+                if (!_initialPeerBars.TryGetValue(peer.Name, out var bar))
+                {
+                    continue;
+                }
+
+                bar.Value = IsPeerHealthy(peer)
+                    ? bar.Maximum
+                    : Math.Min(bar.Maximum, (int)Math.Round((elapsedSeconds / (double)timeoutSeconds) * 100));
+            }
+
             var allHealthy = targetPeers.All(IsPeerHealthy);
             if (allHealthy)
             {
@@ -203,6 +218,11 @@ public partial class Form1 : Form
         }
 
         initialCheckProgressBar.Value = initialCheckProgressBar.Maximum;
+        foreach (var bar in _initialPeerBars.Values)
+        {
+            bar.Value = bar.Maximum;
+        }
+
         SetStatus("초기 점검 실패: 일부 SubPC 미응답/프로세스 비정상");
         AppendLog("초기 점검 타임아웃");
         MessageBox.Show("초기 점검에서 모든 SubPC의 정상 상태를 확인하지 못했습니다.", "주의", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -306,12 +326,41 @@ public partial class Form1 : Form
     private void InitializePeerGridForMain()
     {
         peerGrid.Rows.Clear();
-        foreach (var peer in _config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)))
+        var targetPeers = _config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)).ToList();
+        foreach (var peer in targetPeers)
         {
             foreach (var processName in peer.Processes)
             {
                 peerGrid.Rows.Add(peer.Name, peer.Role, processName, "미수신", "-");
             }
+        }
+
+        BuildPeerProgressBars(targetPeers);
+    }
+
+    private void BuildPeerProgressBars(List<PeerConfig> peers)
+    {
+        peerProgressPanel.Controls.Clear();
+        _initialPeerBars.Clear();
+
+        foreach (var peer in peers)
+        {
+            var row = new TableLayoutPanel
+            {
+                ColumnCount = 2,
+                AutoSize = true,
+                Width = peerProgressPanel.Width - 25
+            };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            var label = new Label { Text = peer.Name, AutoSize = true, Padding = new Padding(0, 4, 0, 0) };
+            var bar = new ProgressBar { Minimum = 0, Maximum = 100, Value = 0, Width = 760, Height = 16 };
+
+            row.Controls.Add(label, 0, 0);
+            row.Controls.Add(bar, 1, 0);
+            peerProgressPanel.Controls.Add(row);
+            _initialPeerBars[peer.Name] = bar;
         }
     }
 

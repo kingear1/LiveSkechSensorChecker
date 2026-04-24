@@ -27,6 +27,7 @@ namespace LiveSkechSensorChecker
             lastHeartbeat = new DataGridViewTextBoxColumn();
             editConfigButton = new Button();
             initialCheckProgressBar = new ProgressBar();
+            peerProgressPanel = new FlowLayoutPanel();
             ((System.ComponentModel.ISupportInitialize)peerGrid).BeginInit();
             SuspendLayout();
             // 
@@ -49,7 +50,7 @@ namespace LiveSkechSensorChecker
             logTextBox.ReadOnly = true;
             logTextBox.ScrollBars = ScrollBars.Vertical;
             logTextBox.Size = new Size(946, 165);
-            logTextBox.TabIndex = 4;
+            logTextBox.TabIndex = 5;
             // 
             // peerGrid
             // 
@@ -59,12 +60,12 @@ namespace LiveSkechSensorChecker
             peerGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             peerGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             peerGrid.Columns.AddRange(new DataGridViewColumn[] { pcName, role, process, isRunning, lastHeartbeat });
-            peerGrid.Location = new Point(16, 66);
+            peerGrid.Location = new Point(16, 112);
             peerGrid.Name = "peerGrid";
             peerGrid.ReadOnly = true;
             peerGrid.RowHeadersVisible = false;
-            peerGrid.Size = new Size(946, 249);
-            peerGrid.TabIndex = 3;
+            peerGrid.Size = new Size(946, 203);
+            peerGrid.TabIndex = 4;
             // 
             // pcName
             // 
@@ -115,11 +116,23 @@ namespace LiveSkechSensorChecker
             initialCheckProgressBar.Size = new Size(946, 16);
             initialCheckProgressBar.TabIndex = 2;
             // 
+            // peerProgressPanel
+            // 
+            peerProgressPanel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            peerProgressPanel.AutoScroll = true;
+            peerProgressPanel.FlowDirection = FlowDirection.TopDown;
+            peerProgressPanel.Location = new Point(16, 66);
+            peerProgressPanel.Name = "peerProgressPanel";
+            peerProgressPanel.Size = new Size(946, 40);
+            peerProgressPanel.TabIndex = 3;
+            peerProgressPanel.WrapContents = false;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(980, 515);
+            Controls.Add(peerProgressPanel);
             Controls.Add(initialCheckProgressBar);
             Controls.Add(editConfigButton);
             Controls.Add(peerGrid);
@@ -144,5 +157,6 @@ namespace LiveSkechSensorChecker
         private DataGridViewTextBoxColumn lastHeartbeat;
         private Button editConfigButton;
         private ProgressBar initialCheckProgressBar;
+        private FlowLayoutPanel peerProgressPanel;
     }
 }

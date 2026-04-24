@@ -3,13 +3,12 @@ namespace LiveSkechSensorChecker;
 internal sealed class ConfigEditorForm : Form
 {
     private readonly string _configPath;
-    private readonly List<PeerConfig> _fixedPeers;
+    private readonly int _originalAlertThresholdSeconds;
 
     private readonly ComboBox _roleCombo;
     private readonly TextBox _pcNameText;
     private readonly NumericUpDown _listenPort;
     private readonly NumericUpDown _sendIntervalSeconds;
-    private readonly NumericUpDown _alertSeconds;
     private readonly TextBox _localProcessesText;
 
     private readonly GroupBox _subGroup;
@@ -18,22 +17,21 @@ internal sealed class ConfigEditorForm : Form
 
     private readonly GroupBox _mainGroup;
     private readonly TextBox _launchPathText;
-    private readonly TextBox _launchArgsText;
     private readonly NumericUpDown _initialTimeoutSeconds;
+    private readonly NumericUpDown _alertSecondsForMain;
+    private readonly DataGridView _peerGrid;
 
     public bool IsSaved { get; private set; }
 
     public ConfigEditorForm(string configPath, AppConfig config)
     {
         _configPath = configPath;
-        _fixedPeers = config.Peers
-            .Select(p => new PeerConfig { Name = p.Name, Ip = p.Ip, Role = p.Role, Processes = [.. p.Processes] })
-            .ToList();
+        _originalAlertThresholdSeconds = config.AlertThresholdSeconds;
 
         Text = "설정 편집";
         StartPosition = FormStartPosition.CenterParent;
-        Width = 900;
-        Height = 560;
+        Width = 980;
+        Height = 700;
 
         var root = new TableLayoutPanel
         {
@@ -43,34 +41,25 @@ internal sealed class ConfigEditorForm : Form
             AutoScroll = true
         };
 
-        var help = new Label
-        {
-            AutoSize = true,
-            Text = "역할에 따라 필요한 설정만 표시됩니다.",
-            Padding = new Padding(0, 0, 0, 6)
-        };
-
         _roleCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 120 };
         _roleCombo.Items.AddRange(["main", "sub"]);
         _pcNameText = new TextBox { Width = 180 };
         _listenPort = NewRangeUpDown(1, 65535);
         _sendIntervalSeconds = NewRangeUpDown(1, 60);
-        _alertSeconds = NewRangeUpDown(2, 300);
 
         _localProcessesText = new TextBox { Dock = DockStyle.Fill };
-        var processPickBtn = new Button { Text = "실행중 프로세스 선택", Width = 160 };
+        var processPickBtn = new Button { Text = "실행중 프로세스 선택", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
         processPickBtn.Click += (_, _) => PickProcessesInto(_localProcessesText);
 
-        var basicGroup = new GroupBox { Text = "공통 설정", Dock = DockStyle.Top, AutoSize = true };
-        var basicTable = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, AutoSize = true, Padding = new Padding(8) };
-        basicTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        basicTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        basicTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        basicTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        AddGridRow(basicTable, 0, "역할", _roleCombo, "내 PC 이름", _pcNameText);
-        AddGridRow(basicTable, 1, "수신 Port", _listenPort, "전송주기(초)", _sendIntervalSeconds);
-        AddGridRow(basicTable, 2, "알림 임계(초)", _alertSeconds, null, null);
-        basicGroup.Controls.Add(basicTable);
+        var commonGroup = new GroupBox { Text = "공통 설정", Dock = DockStyle.Top, AutoSize = true };
+        var commonTable = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, AutoSize = true, Padding = new Padding(8) };
+        commonTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        commonTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        commonTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        commonTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        AddGridRow(commonTable, 0, "역할", _roleCombo, "내 PC 이름", _pcNameText);
+        AddGridRow(commonTable, 1, "수신 Port", _listenPort, "전송주기(초)", _sendIntervalSeconds);
+        commonGroup.Controls.Add(commonTable);
 
         var processGroup = new GroupBox { Text = "로컬 프로세스", Dock = DockStyle.Top, AutoSize = true };
         var processTable = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true, Padding = new Padding(8) };
@@ -92,17 +81,46 @@ internal sealed class ConfigEditorForm : Form
         _subGroup.Controls.Add(subTable);
 
         _mainGroup = new GroupBox { Text = "Main 전용 설정", Dock = DockStyle.Top, AutoSize = true };
-        var mainTable = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, AutoSize = true, Padding = new Padding(8) };
-        mainTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        mainTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        mainTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        mainTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        _launchPathText = new TextBox { Dock = DockStyle.Fill };
-        _launchArgsText = new TextBox { Dock = DockStyle.Fill };
+        var mainLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(8) };
+
+        var mainTopTable = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 4, AutoSize = true };
+        mainTopTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        mainTopTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        mainTopTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        mainTopTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        _launchPathText = new TextBox { Dock = DockStyle.Fill, Width = 420 };
+        var browseButton = new Button { Text = "프로그램 선택", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
+        browseButton.Click += BrowseButton_Click;
         _initialTimeoutSeconds = NewRangeUpDown(5, 300);
-        AddGridRow(mainTable, 0, "실행 파일 경로", _launchPathText, "실행 인자", _launchArgsText);
-        AddGridRow(mainTable, 1, "초기 점검 타임아웃", _initialTimeoutSeconds, null, null);
-        _mainGroup.Controls.Add(mainTable);
+        _alertSecondsForMain = NewRangeUpDown(2, 300);
+
+        AddGridRow(mainTopTable, 0, "실행 파일 경로", _launchPathText, null, null);
+        mainTopTable.Controls.Add(browseButton, 3, 0);
+        AddGridRow(mainTopTable, 1, "초기 점검 타임아웃", _initialTimeoutSeconds, "알림 임계(초)", _alertSecondsForMain);
+
+        var peerLabel = new Label { AutoSize = true, Text = "점검할 Sub PC 목록" };
+        _peerGrid = new DataGridView
+        {
+            Dock = DockStyle.Fill,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            AllowUserToAddRows = true,
+            AllowUserToDeleteRows = true,
+            RowHeadersVisible = false,
+            Height = 190
+        };
+        _peerGrid.Columns.Add("name", "PC 이름");
+        _peerGrid.Columns.Add("ip", "IP");
+        _peerGrid.Columns.Add("processes", "프로세스(콤마구분)");
+
+        var peerProcessButton = new Button { Text = "선택 행 프로세스 선택", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
+        peerProcessButton.Click += (_, _) => PickProcessesForSelectedPeerRow();
+
+        mainLayout.Controls.Add(mainTopTable);
+        mainLayout.Controls.Add(peerLabel);
+        mainLayout.Controls.Add(peerProcessButton);
+        mainLayout.Controls.Add(_peerGrid);
+        _mainGroup.Controls.Add(mainLayout);
 
         var actions = new FlowLayoutPanel { Dock = DockStyle.Top, FlowDirection = FlowDirection.RightToLeft, Height = 42 };
         var saveButton = new Button { Text = "저장", Width = 100, Height = 30 };
@@ -112,8 +130,7 @@ internal sealed class ConfigEditorForm : Form
         actions.Controls.Add(saveButton);
         actions.Controls.Add(cancelButton);
 
-        root.Controls.Add(help);
-        root.Controls.Add(basicGroup);
+        root.Controls.Add(commonGroup);
         root.Controls.Add(processGroup);
         root.Controls.Add(_subGroup);
         root.Controls.Add(_mainGroup);
@@ -123,6 +140,36 @@ internal sealed class ConfigEditorForm : Form
         BindFromConfig(config);
         ApplyRoleUi();
         _roleCombo.SelectedIndexChanged += (_, _) => ApplyRoleUi();
+    }
+
+    private void BrowseButton_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "실행할 프로그램 선택",
+            Filter = "실행 파일 (*.exe)|*.exe|모든 파일 (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _launchPathText.Text = dialog.FileName;
+        }
+    }
+
+    private void PickProcessesForSelectedPeerRow()
+    {
+        if (_peerGrid.CurrentRow is null || _peerGrid.CurrentRow.IsNewRow)
+        {
+            MessageBox.Show("Peer 목록에서 행을 먼저 선택하세요.", "안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var current = _peerGrid.CurrentRow.Cells[2].Value?.ToString() ?? string.Empty;
+        using var picker = new ProcessPickerForm(SplitProcesses(current));
+        if (picker.ShowDialog(this) == DialogResult.OK)
+        {
+            _peerGrid.CurrentRow.Cells[2].Value = string.Join(", ", picker.SelectedProcesses);
+        }
     }
 
     private static NumericUpDown NewRangeUpDown(int min, int max)
@@ -165,15 +212,20 @@ internal sealed class ConfigEditorForm : Form
         _pcNameText.Text = config.LocalMonitoring.PcName;
         _listenPort.Value = config.Udp.ListenPort;
         _sendIntervalSeconds.Value = config.HeartbeatIntervalSeconds;
-        _alertSeconds.Value = config.AlertThresholdSeconds;
         _localProcessesText.Text = string.Join(", ", config.LocalMonitoring.Processes);
 
         _mainIpText.Text = config.Udp.MainIp ?? string.Empty;
         _mainPort.Value = config.Udp.MainPort;
 
         _launchPathText.Text = config.MainBehavior?.LaunchOnAllHealthyPath ?? string.Empty;
-        _launchArgsText.Text = config.MainBehavior?.LaunchArguments ?? string.Empty;
         _initialTimeoutSeconds.Value = config.MainBehavior?.InitialCheckTimeoutSeconds ?? 20;
+        _alertSecondsForMain.Value = config.AlertThresholdSeconds;
+
+        _peerGrid.Rows.Clear();
+        foreach (var peer in config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)))
+        {
+            _peerGrid.Rows.Add(peer.Name, peer.Ip, string.Join(", ", peer.Processes));
+        }
     }
 
     private void SaveButton_Click(object? sender, EventArgs e)
@@ -220,6 +272,9 @@ internal sealed class ConfigEditorForm : Form
         };
 
         MainBehaviorConfig? mainBehavior = null;
+        List<PeerConfig> peers;
+        var alertThreshold = _originalAlertThresholdSeconds;
+
         if (role == "main")
         {
             var launchPath = _launchPathText.Text.Trim();
@@ -228,12 +283,30 @@ internal sealed class ConfigEditorForm : Form
                 throw new InvalidOperationException("Main 역할은 실행 파일 경로가 필요합니다.");
             }
 
+            var subPeers = BuildSubPeersFromGrid();
+            if (subPeers.Count == 0)
+            {
+                throw new InvalidOperationException("Main에서는 점검할 Sub PC를 최소 1개 등록해야 합니다.");
+            }
+
             mainBehavior = new MainBehaviorConfig
             {
                 LaunchOnAllHealthyPath = launchPath,
-                LaunchArguments = _launchArgsText.Text.Trim(),
+                LaunchArguments = string.Empty,
                 InitialCheckTimeoutSeconds = (int)_initialTimeoutSeconds.Value
             };
+
+            var existingMainIp = GetExistingMainIpOrDefault();
+            var mainPeer = new PeerConfig
+            {
+                Name = pcName,
+                Ip = existingMainIp,
+                Role = "main",
+                Processes = [.. localProcesses]
+            };
+
+            peers = [mainPeer, .. subPeers];
+            alertThreshold = (int)_alertSecondsForMain.Value;
         }
         else
         {
@@ -241,22 +314,77 @@ internal sealed class ConfigEditorForm : Form
             {
                 throw new InvalidOperationException("Sub 역할은 Main IP가 필요합니다.");
             }
+
+            peers = BuildSubRolePeersFromExisting(pcName, localProcesses);
         }
 
         return new AppConfig
         {
             Role = role,
             HeartbeatIntervalSeconds = (int)_sendIntervalSeconds.Value,
-            AlertThresholdSeconds = (int)_alertSeconds.Value,
+            AlertThresholdSeconds = alertThreshold,
             Udp = udp,
             LocalMonitoring = new LocalMonitoringConfig
             {
                 PcName = pcName,
                 Processes = localProcesses
             },
-            Peers = _fixedPeers,
+            Peers = peers,
             MainBehavior = mainBehavior
         };
+    }
+
+    private string GetExistingMainIpOrDefault()
+    {
+        var main = _fixedPeers.FirstOrDefault(p => string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase));
+        return main is null || string.IsNullOrWhiteSpace(main.Ip) ? "127.0.0.1" : main.Ip;
+    }
+
+    private List<PeerConfig> BuildSubPeersFromGrid()
+    {
+        var list = new List<PeerConfig>();
+        foreach (DataGridViewRow row in _peerGrid.Rows)
+        {
+            if (row.IsNewRow)
+            {
+                continue;
+            }
+
+            var name = row.Cells[0].Value?.ToString()?.Trim() ?? string.Empty;
+            var ip = row.Cells[1].Value?.ToString()?.Trim() ?? string.Empty;
+            var processes = SplitProcesses(row.Cells[2].Value?.ToString() ?? string.Empty);
+
+            if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(ip) && processes.Count == 0)
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(ip) || processes.Count == 0)
+            {
+                throw new InvalidOperationException("Sub PC 목록은 이름/IP/프로세스를 모두 입력해야 합니다.");
+            }
+
+            list.Add(new PeerConfig { Name = name, Ip = ip, Role = "sub", Processes = processes });
+        }
+
+        return list;
+    }
+
+    private List<PeerConfig> BuildSubRolePeersFromExisting(string pcName, List<string> localProcesses)
+    {
+        var peers = _fixedPeers
+            .Where(p => !string.Equals(p.Name, pcName, StringComparison.OrdinalIgnoreCase))
+            .Select(p => new PeerConfig
+            {
+                Name = p.Name,
+                Ip = p.Ip,
+                Role = p.Role,
+                Processes = [.. p.Processes]
+            })
+            .ToList();
+
+        peers.Add(new PeerConfig { Name = pcName, Ip = "127.0.0.1", Role = "sub", Processes = [.. localProcesses] });
+        return peers;
     }
 
     private static List<string> SplitProcesses(string value)
