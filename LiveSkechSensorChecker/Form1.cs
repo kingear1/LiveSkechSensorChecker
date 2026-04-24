@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 
@@ -275,7 +276,7 @@ public partial class Form1 : Form
             return;
         }
 
-        Process.Start(new ProcessStartInfo
+        var launched = Process.Start(new ProcessStartInfo
         {
             FileName = path,
             Arguments = mainBehavior.LaunchArguments ?? string.Empty,
@@ -283,7 +284,64 @@ public partial class Form1 : Form
         });
         _launchedTarget = true;
 
+        if (launched is not null)
+        {
+            _ = Task.Run(() => TryBringToFront(launched));
+        }
+
         AppendLog($"연동 소프트웨어 실행: {path}");
+    }
+
+    private static void TryBringToFront(Process process)
+    {
+        try
+        {
+            if (process.HasExited)
+            {
+                return;
+            }
+
+            try
+            {
+                process.WaitForInputIdle(5000);
+            }
+            catch
+            {
+                // 콘솔/백그라운드 프로세스일 수 있으므로 무시
+            }
+
+            IntPtr handle = IntPtr.Zero;
+            for (var i = 0; i < 15; i++)
+            {
+                if (process.HasExited)
+                {
+                    return;
+                }
+
+                process.Refresh();
+                handle = process.MainWindowHandle;
+                if (handle != IntPtr.Zero)
+                {
+                    break;
+                }
+
+                Thread.Sleep(200);
+            }
+
+            if (handle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            const int SwRestore = 9;
+            NativeMethods.ShowWindowAsync(handle, SwRestore);
+            NativeMethods.BringWindowToTop(handle);
+            NativeMethods.SetForegroundWindow(handle);
+        }
+        catch
+        {
+            // 포커스 강제는 OS 정책에 따라 실패 가능 (best-effort)
+        }
     }
 
     private void StartMonitorLoop()
@@ -618,4 +676,19 @@ internal sealed class PeerRuntimeState(string name, string role)
 
         IsHealthy = false;
     }
+}
+
+internal static partial class NativeMethods
+{
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool BringWindowToTop(IntPtr hWnd);
 }
