@@ -296,14 +296,14 @@ public partial class Form1 : Form
 
         if (launched is not null)
         {
-            _ = Task.Run(() => TryBringToFront(launched));
+                        _ = Task.Run(() => TryBringToFront(launched, mainBehavior.ForceCenterClickFallback));
         }
 
         MinimizeToTray();
         AppendLog($"연동 소프트웨어 실행: {path}");
     }
 
-    private static void TryBringToFront(Process process)
+    private static void TryBringToFront(Process process, bool useCenterClickFallback)
     {
         try
         {
@@ -348,10 +348,35 @@ public partial class Form1 : Form
             NativeMethods.ShowWindowAsync(handle, SwRestore);
             NativeMethods.BringWindowToTop(handle);
             NativeMethods.SetForegroundWindow(handle);
+
+            if (useCenterClickFallback)
+            {
+                TryCenterClickFallback();
+            }
         }
         catch
         {
             // 포커스 강제는 OS 정책에 따라 실패 가능 (best-effort)
+            if (useCenterClickFallback)
+            {
+                TryCenterClickFallback();
+            }
+        }
+    }
+
+    private static void TryCenterClickFallback()
+    {
+        try
+        {
+            var oldPos = Cursor.Position;
+            var center = new Point(Screen.PrimaryScreen!.Bounds.Width / 2, Screen.PrimaryScreen.Bounds.Height / 2);
+            Cursor.Position = center;
+            NativeMethods.mouse_event(0x0002 | 0x0004, 0, 0, 0, UIntPtr.Zero);
+            Cursor.Position = oldPos;
+        }
+        catch
+        {
+            // fallback 실패는 무시
         }
     }
 
@@ -746,4 +771,7 @@ internal static partial class NativeMethods
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
 }

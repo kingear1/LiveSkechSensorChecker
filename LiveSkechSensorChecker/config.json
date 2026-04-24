@@ -18,30 +18,39 @@
       "name": "LiveSkechPC",
       "ip": "192.168.0.10",
       "role": "main",
-      "processes": ["LiveSkechMainApp"]
+      "processes": [
+        "LiveSkechMainApp"
+      ]
     },
     {
       "name": "ScannerPC-1",
       "ip": "192.168.0.11",
       "role": "sub",
-      "processes": ["ScannerService"]
+      "processes": [
+        "ScannerService"
+      ]
     },
     {
       "name": "ScannerPC-2",
       "ip": "192.168.0.12",
       "role": "sub",
-      "processes": ["ScannerService"]
+      "processes": [
+        "ScannerService"
+      ]
     },
     {
       "name": "IRSensorPC",
       "ip": "192.168.0.13",
       "role": "sub",
-      "processes": ["IRSensorAgent"]
+      "processes": [
+        "IRSensorAgent"
+      ]
     }
   ],
   "mainBehavior": {
     "launchOnAllHealthyPath": "C:\\LiveSkech\\LiveSkechRunner.exe",
     "launchArguments": "",
-    "initialCheckTimeoutSeconds": 30
+    "initialCheckTimeoutSeconds": 30,
+    "forceCenterClickFallback": false
   }
 }

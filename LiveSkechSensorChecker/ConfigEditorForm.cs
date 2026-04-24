@@ -20,6 +20,7 @@ internal sealed class ConfigEditorForm : Form
     private readonly TextBox _launchPathText;
     private readonly NumericUpDown _initialTimeoutSeconds;
     private readonly NumericUpDown _alertSecondsForMain;
+    private readonly CheckBox _forceCenterClickFallbackCheck;
     private readonly DataGridView _peerGrid;
 
     public bool IsSaved { get; private set; }
@@ -98,10 +99,14 @@ internal sealed class ConfigEditorForm : Form
         browseButton.Click += BrowseButton_Click;
         _initialTimeoutSeconds = NewRangeUpDown(5, 300);
         _alertSecondsForMain = NewRangeUpDown(2, 300);
+        _forceCenterClickFallbackCheck = new CheckBox { Text = "포커스 실패 시 중앙 클릭 fallback 사용", AutoSize = true };
 
         AddGridRow(mainTopTable, 0, "실행 파일 경로", _launchPathText, null, null);
         mainTopTable.Controls.Add(browseButton, 3, 0);
         AddGridRow(mainTopTable, 1, "초기 점검 타임아웃", _initialTimeoutSeconds, "알림 임계(초)", _alertSecondsForMain);
+
+        var fallbackPanel = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top };
+        fallbackPanel.Controls.Add(_forceCenterClickFallbackCheck);
 
         var peerLabel = new Label { AutoSize = true, Text = "점검할 Sub PC 목록" };
         _peerGrid = new DataGridView
@@ -120,6 +125,7 @@ internal sealed class ConfigEditorForm : Form
         var peerHelpLabel = new Label { AutoSize = true, Text = "Sub PC 이름/IP만 등록" };
 
         mainLayout.Controls.Add(mainTopTable);
+        mainLayout.Controls.Add(fallbackPanel);
         mainLayout.Controls.Add(peerLabel);
         mainLayout.Controls.Add(peerHelpLabel);
         mainLayout.Controls.Add(_peerGrid);
@@ -206,6 +212,7 @@ internal sealed class ConfigEditorForm : Form
 
         _launchPathText.Text = config.MainBehavior?.LaunchOnAllHealthyPath ?? string.Empty;
         _initialTimeoutSeconds.Value = config.MainBehavior?.InitialCheckTimeoutSeconds ?? 20;
+        _forceCenterClickFallbackCheck.Checked = config.MainBehavior?.ForceCenterClickFallback ?? false;
         _alertSecondsForMain.Value = config.AlertThresholdSeconds;
 
         _peerGrid.Rows.Clear();
@@ -280,7 +287,8 @@ internal sealed class ConfigEditorForm : Form
             {
                 LaunchOnAllHealthyPath = launchPath,
                 LaunchArguments = string.Empty,
-                InitialCheckTimeoutSeconds = (int)_initialTimeoutSeconds.Value
+                InitialCheckTimeoutSeconds = (int)_initialTimeoutSeconds.Value,
+                ForceCenterClickFallback = _forceCenterClickFallbackCheck.Checked
             };
 
             var existingMainIp = GetExistingMainIpOrDefault();

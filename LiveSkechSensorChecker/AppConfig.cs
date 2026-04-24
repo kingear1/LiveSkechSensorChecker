@@ -68,6 +68,7 @@ internal sealed class MainBehaviorConfig
     public required string LaunchOnAllHealthyPath { get; init; }
     public string? LaunchArguments { get; init; }
     public int InitialCheckTimeoutSeconds { get; init; } = 20;
+    public bool ForceCenterClickFallback { get; init; } = false;
 }
 
 internal sealed class HeartbeatPacket
