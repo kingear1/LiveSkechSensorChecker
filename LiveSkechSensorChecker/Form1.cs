@@ -262,16 +262,43 @@ public partial class Form1 : Form
         _monitorTimer.Start();
     }
 
+    private bool IsSignalUnhealthyBeyondThreshold(PeerConfig peer)
+    {
+        if (!_peerStates.TryGetValue(peer.Name, out var state))
+        {
+            return false;
+        }
+
+        if (state.IsHealthy || state.UnhealthySignalSinceUtc is null)
+        {
+            return false;
+        }
+
+        return DateTime.UtcNow - state.UnhealthySignalSinceUtc.Value >= TimeSpan.FromSeconds(_config.AlertThresholdSeconds);
+    }
+
     private void MonitorPeersAndAlert()
     {
         var targetPeers = _config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)).ToList();
 
         foreach (var peer in targetPeers)
         {
-            var healthy = IsPeerHealthy(peer);
-            if (healthy)
+            if (!_peerStates.TryGetValue(peer.Name, out var state))
             {
-                _alertedPeers.Remove(peer.Name);
+                continue;
+            }
+
+            var timeout = DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.AlertThresholdSeconds);
+            var signalUnhealthy = !state.IsHealthy;
+            var signalAlertReady = IsSignalUnhealthyBeyondThreshold(peer);
+
+            var shouldAlert = timeout || signalAlertReady;
+            if (!shouldAlert)
+            {
+                if (!signalUnhealthy)
+                {
+                    _alertedPeers.Remove(peer.Name);
+                }
                 continue;
             }
 
@@ -462,10 +489,24 @@ internal sealed class PeerRuntimeState(string name, string role)
     public string Role { get; } = role;
     public DateTime LastHeartbeatUtc { get; private set; } = DateTime.MinValue;
     public bool IsHealthy { get; private set; }
+    public DateTime? UnhealthySignalSinceUtc { get; private set; }
 
     public void Update(HeartbeatPacket packet)
     {
         LastHeartbeatUtc = packet.TimestampUtc;
-        IsHealthy = packet.IsHealthy;
+
+        if (packet.IsHealthy)
+        {
+            IsHealthy = true;
+            UnhealthySignalSinceUtc = null;
+            return;
+        }
+
+        if (IsHealthy || UnhealthySignalSinceUtc is null)
+        {
+            UnhealthySignalSinceUtc = packet.TimestampUtc;
+        }
+
+        IsHealthy = false;
     }
 }
