@@ -400,7 +400,7 @@ public partial class Form1 : Form
             Process.Start(new ProcessStartInfo
             {
                 FileName = "powershell",
-                Arguments = $"-NoProfile -WindowStyle Hidden -Command "{script}"",
+                Arguments = $"-NoProfile -WindowStyle Hidden -Command \"{script}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true
             });
@@ -805,4 +805,8 @@ internal static partial class NativeMethods
 
     [DllImport("user32.dll")]
     public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetCursorPos(int x, int y);
 }
