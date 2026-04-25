@@ -69,6 +69,11 @@ internal sealed class MainBehaviorConfig
     public string? LaunchArguments { get; init; }
     public int InitialCheckTimeoutSeconds { get; init; } = 20;
     public bool ForceCenterClickFallback { get; init; } = false;
+    public int CenterClickDelaySeconds { get; init; } = 30;
+    public int CenterClickX { get; init; } = 500;
+    public int CenterClickY { get; init; } = 500;
+    public bool EnableHelperFocusProcess { get; init; } = false;
+    public int HelperFocusDelaySeconds { get; init; } = 3;
 }
 
 internal sealed class HeartbeatPacket

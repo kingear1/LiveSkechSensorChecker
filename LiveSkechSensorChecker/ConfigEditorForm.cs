@@ -21,6 +21,11 @@ internal sealed class ConfigEditorForm : Form
     private readonly NumericUpDown _initialTimeoutSeconds;
     private readonly NumericUpDown _alertSecondsForMain;
     private readonly CheckBox _forceCenterClickFallbackCheck;
+    private readonly NumericUpDown _centerClickDelaySeconds;
+    private readonly NumericUpDown _centerClickX;
+    private readonly NumericUpDown _centerClickY;
+    private readonly CheckBox _enableHelperFocusProcessCheck;
+    private readonly NumericUpDown _helperFocusDelaySeconds;
     private readonly DataGridView _peerGrid;
 
     public bool IsSaved { get; private set; }
@@ -99,7 +104,12 @@ internal sealed class ConfigEditorForm : Form
         browseButton.Click += BrowseButton_Click;
         _initialTimeoutSeconds = NewRangeUpDown(5, 300);
         _alertSecondsForMain = NewRangeUpDown(2, 300);
-        _forceCenterClickFallbackCheck = new CheckBox { Text = "포커스 실패 시 중앙 클릭 fallback 사용", AutoSize = true };
+        _forceCenterClickFallbackCheck = new CheckBox { Text = "중앙 클릭 fallback 사용", AutoSize = true };
+        _centerClickDelaySeconds = NewRangeUpDown(0, 300);
+        _centerClickX = NewRangeUpDown(0, 5000);
+        _centerClickY = NewRangeUpDown(0, 5000);
+        _enableHelperFocusProcessCheck = new CheckBox { Text = "헬퍼 포커스 프로세스 사용", AutoSize = true };
+        _helperFocusDelaySeconds = NewRangeUpDown(0, 300);
 
         AddGridRow(mainTopTable, 0, "실행 파일 경로", _launchPathText, null, null);
         mainTopTable.Controls.Add(browseButton, 3, 0);
@@ -107,6 +117,15 @@ internal sealed class ConfigEditorForm : Form
 
         var fallbackPanel = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top };
         fallbackPanel.Controls.Add(_forceCenterClickFallbackCheck);
+        fallbackPanel.Controls.Add(new Label { AutoSize = true, Text = "클릭 딜레이(초)" });
+        fallbackPanel.Controls.Add(_centerClickDelaySeconds);
+        fallbackPanel.Controls.Add(new Label { AutoSize = true, Text = "X" });
+        fallbackPanel.Controls.Add(_centerClickX);
+        fallbackPanel.Controls.Add(new Label { AutoSize = true, Text = "Y" });
+        fallbackPanel.Controls.Add(_centerClickY);
+        fallbackPanel.Controls.Add(_enableHelperFocusProcessCheck);
+        fallbackPanel.Controls.Add(new Label { AutoSize = true, Text = "헬퍼 딜레이(초)" });
+        fallbackPanel.Controls.Add(_helperFocusDelaySeconds);
 
         var peerLabel = new Label { AutoSize = true, Text = "점검할 Sub PC 목록" };
         _peerGrid = new DataGridView
@@ -213,6 +232,11 @@ internal sealed class ConfigEditorForm : Form
         _launchPathText.Text = config.MainBehavior?.LaunchOnAllHealthyPath ?? string.Empty;
         _initialTimeoutSeconds.Value = config.MainBehavior?.InitialCheckTimeoutSeconds ?? 20;
         _forceCenterClickFallbackCheck.Checked = config.MainBehavior?.ForceCenterClickFallback ?? false;
+        _centerClickDelaySeconds.Value = config.MainBehavior?.CenterClickDelaySeconds ?? 30;
+        _centerClickX.Value = config.MainBehavior?.CenterClickX ?? 500;
+        _centerClickY.Value = config.MainBehavior?.CenterClickY ?? 500;
+        _enableHelperFocusProcessCheck.Checked = config.MainBehavior?.EnableHelperFocusProcess ?? false;
+        _helperFocusDelaySeconds.Value = config.MainBehavior?.HelperFocusDelaySeconds ?? 3;
         _alertSecondsForMain.Value = config.AlertThresholdSeconds;
 
         _peerGrid.Rows.Clear();
@@ -288,7 +312,12 @@ internal sealed class ConfigEditorForm : Form
                 LaunchOnAllHealthyPath = launchPath,
                 LaunchArguments = string.Empty,
                 InitialCheckTimeoutSeconds = (int)_initialTimeoutSeconds.Value,
-                ForceCenterClickFallback = _forceCenterClickFallbackCheck.Checked
+                ForceCenterClickFallback = _forceCenterClickFallbackCheck.Checked,
+                CenterClickDelaySeconds = (int)_centerClickDelaySeconds.Value,
+                CenterClickX = (int)_centerClickX.Value,
+                CenterClickY = (int)_centerClickY.Value,
+                EnableHelperFocusProcess = _enableHelperFocusProcessCheck.Checked,
+                HelperFocusDelaySeconds = (int)_helperFocusDelaySeconds.Value
             };
 
             var existingMainIp = GetExistingMainIpOrDefault();

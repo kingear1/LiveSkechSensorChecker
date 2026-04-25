@@ -51,6 +51,11 @@
     "launchOnAllHealthyPath": "C:\\LiveSkech\\LiveSkechRunner.exe",
     "launchArguments": "",
     "initialCheckTimeoutSeconds": 30,
-    "forceCenterClickFallback": false
+    "forceCenterClickFallback": false,
+    "centerClickDelaySeconds": 30,
+    "centerClickX": 500,
+    "centerClickY": 500,
+    "enableHelperFocusProcess": false,
+    "helperFocusDelaySeconds": 3
   }
 }

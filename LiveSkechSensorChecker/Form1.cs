@@ -300,10 +300,16 @@ public partial class Form1 : Form
             {
                 TryBringToFront(launched);
 
+                if (mainBehavior.EnableHelperFocusProcess)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(Math.Max(0, mainBehavior.HelperFocusDelaySeconds)));
+                    RunHelperFocusProcess(launched);
+                }
+
                 if (mainBehavior.ForceCenterClickFallback)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(30));
-                    TryCenterClickFallback();
+                    await Task.Delay(TimeSpan.FromSeconds(Math.Max(0, mainBehavior.CenterClickDelaySeconds)));
+                    TryFixedCoordinateClick(mainBehavior.CenterClickX, mainBehavior.CenterClickY);
                 }
             });
         }
@@ -365,19 +371,43 @@ public partial class Form1 : Form
         }
     }
 
-    private static void TryCenterClickFallback()
+    private static void TryFixedCoordinateClick(int x, int y)
     {
         try
         {
-            var oldPos = Cursor.Position;
-            var center = new Point(Screen.PrimaryScreen!.Bounds.Width / 2, Screen.PrimaryScreen.Bounds.Height / 2);
-            Cursor.Position = center;
+            NativeMethods.SetCursorPos(x, y);
             NativeMethods.mouse_event(0x0002 | 0x0004, 0, 0, 0, UIntPtr.Zero);
-            Cursor.Position = oldPos;
         }
         catch
         {
             // fallback 실패는 무시
+        }
+    }
+
+    private static void RunHelperFocusProcess(Process process)
+    {
+        try
+        {
+            process.Refresh();
+            var title = process.MainWindowTitle;
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                return;
+            }
+
+            var escaped = title.Replace("'", "''");
+            var script = $"Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.Interaction]::AppActivate('{escaped}')";
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell",
+                Arguments = $"-NoProfile -WindowStyle Hidden -Command "{script}"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+        catch
+        {
+            // helper focus process 실패는 무시
         }
     }
 
