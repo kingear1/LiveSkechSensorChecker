@@ -1,0 +1,62 @@
+{
+  "role": "main",
+  "heartbeatIntervalSeconds": 2,
+  "peerHeartbeatTimeoutSeconds": 10,
+  "rebootAlertAttemptCount": 3,
+  "udp": {
+    "listenPort": 51000,
+    "mainIp": "192.168.0.10",
+    "mainPort": 51000
+  },
+  "localMonitoring": {
+    "pcName": "LiveSkechPC",
+    "processes": [
+      "LiveSkechMainApp"
+    ]
+  },
+  "peers": [
+    {
+      "name": "LiveSkechPC",
+      "ip": "192.168.0.10",
+      "role": "main",
+      "processes": [
+        "LiveSkechMainApp"
+      ]
+    },
+    {
+      "name": "ScannerPC-1",
+      "ip": "192.168.0.11",
+      "role": "sub",
+      "processes": [
+        "ScannerService"
+      ]
+    },
+    {
+      "name": "ScannerPC-2",
+      "ip": "192.168.0.12",
+      "role": "sub",
+      "processes": [
+        "ScannerService"
+      ]
+    },
+    {
+      "name": "IRSensorPC",
+      "ip": "192.168.0.13",
+      "role": "sub",
+      "processes": [
+        "IRSensorAgent"
+      ]
+    }
+  ],
+  "mainBehavior": {
+    "launchOnAllHealthyPath": "C:\\LiveSkech\\LiveSkechRunner.exe",
+    "launchArguments": "",
+    "initialCheckTimeoutSeconds": 30,
+    "forceCenterClickFallback": false,
+    "centerClickDelaySeconds": 30,
+    "centerClickX": 500,
+    "centerClickY": 500,
+    "enableHelperFocusProcess": false,
+    "helperFocusDelaySeconds": 3
+  }
+}
