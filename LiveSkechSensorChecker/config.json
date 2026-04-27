@@ -1,6 +1,7 @@
 {
   "role": "main",
   "heartbeatIntervalSeconds": 2,
+  "alertThresholdSeconds": 10,
   "peerHeartbeatTimeoutSeconds": 10,
   "rebootAlertAttemptCount": 3,
   "udp": {

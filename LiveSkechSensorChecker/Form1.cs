@@ -90,6 +90,9 @@ public partial class Form1 : Form
 
     private bool IsMainRole() => string.Equals(_config.Role, "main", StringComparison.OrdinalIgnoreCase);
 
+    private int GetAlertThresholdSeconds()
+        => Math.Max(1, _config.AlertThresholdSeconds ?? _config.PeerHeartbeatTimeoutSeconds);
+
     private void StartReceiver()
     {
         _listener = new UdpClient(_config.Udp.ListenPort);
@@ -261,7 +264,7 @@ public partial class Form1 : Form
             return false;
         }
 
-        if (DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.PeerHeartbeatTimeoutSeconds))
+        if (DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(GetAlertThresholdSeconds()))
         {
             return false;
         }
@@ -439,7 +442,7 @@ public partial class Form1 : Form
             return true;
         }
 
-        var timeout = DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.PeerHeartbeatTimeoutSeconds);
+        var timeout = DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(GetAlertThresholdSeconds());
         return timeout || !state.IsHealthy;
     }
 
@@ -666,7 +669,7 @@ public partial class Form1 : Form
                 continue;
             }
 
-            if (DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.PeerHeartbeatTimeoutSeconds))
+            if (DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(GetAlertThresholdSeconds()))
             {
                 row.Cells[2].Value = "타임아웃";
                 row.Cells[3].Value = state.LastHeartbeatUtc.ToLocalTime().ToString("HH:mm:ss");

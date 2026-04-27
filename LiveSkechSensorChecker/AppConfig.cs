@@ -10,6 +10,7 @@ internal sealed class AppConfig
     public required LocalMonitoringConfig LocalMonitoring { get; init; }
     public MainBehaviorConfig? MainBehavior { get; init; }
     public int HeartbeatIntervalSeconds { get; init; } = 2;
+    public int? AlertThresholdSeconds { get; init; }
     public int PeerHeartbeatTimeoutSeconds { get; init; } = 10;
     public int RebootAlertAttemptCount { get; init; } = 3;
 
