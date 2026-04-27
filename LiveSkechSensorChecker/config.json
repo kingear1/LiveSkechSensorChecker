@@ -1,7 +1,8 @@
 {
   "role": "main",
   "heartbeatIntervalSeconds": 2,
-  "alertThresholdSeconds": 10,
+  "peerHeartbeatTimeoutSeconds": 10,
+  "rebootAlertAttemptCount": 3,
   "udp": {
     "listenPort": 51000,
     "mainIp": "192.168.0.10",

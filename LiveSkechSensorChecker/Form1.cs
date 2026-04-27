@@ -18,6 +18,7 @@ public partial class Form1 : Form
     private readonly HashSet<string> _alertedPeers = [];
     private readonly Dictionary<string, Label> _peerCheckLabels = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _lastRebootAttemptUtc = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _rebootAttemptCounts = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _initialProblemDetectedUtc = new(StringComparer.OrdinalIgnoreCase);
     private int _spinnerFrame;
     private bool _rebootPending;
@@ -246,8 +247,10 @@ public partial class Form1 : Form
         foreach (var peer in targetPeers.Where(IsPeerProblem))
         {
             AttemptRebootIfDue(peer);
-            ShowUnresolvedWarning(peer);
-            _alertedPeers.Add(peer.Name);
+            if (ShouldShowWarning(peer) && _alertedPeers.Add(peer.Name))
+            {
+                ShowUnresolvedWarning(peer);
+            }
         }
     }
 
@@ -258,7 +261,7 @@ public partial class Form1 : Form
             return false;
         }
 
-        if (DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.AlertThresholdSeconds))
+        if (DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.PeerHeartbeatTimeoutSeconds))
         {
             return false;
         }
@@ -436,7 +439,7 @@ public partial class Form1 : Form
             return true;
         }
 
-        var timeout = DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.AlertThresholdSeconds);
+        var timeout = DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.PeerHeartbeatTimeoutSeconds);
         return timeout || !state.IsHealthy;
     }
 
@@ -467,14 +470,22 @@ public partial class Form1 : Form
             _mainCommandSender.Send(bytes, bytes.Length, endpoint);
 
             _lastRebootAttemptUtc[peer.Name] = now;
+            _rebootAttemptCounts[peer.Name] = GetRebootAttemptCount(peer.Name) + 1;
             AppendLog($"{peer.Name} 재부팅 신호 전송 ({peer.Ip}:{_config.Udp.ListenPort})");
         }
         catch (Exception ex)
         {
             _lastRebootAttemptUtc[peer.Name] = now;
+            _rebootAttemptCounts[peer.Name] = GetRebootAttemptCount(peer.Name) + 1;
             AppendLog($"{peer.Name} 재부팅 신호 전송 실패: {ex.Message}");
         }
     }
+
+    private int GetRebootAttemptCount(string peerName)
+        => _rebootAttemptCounts.TryGetValue(peerName, out var count) ? count : 0;
+
+    private bool ShouldShowWarning(PeerConfig peer)
+        => GetRebootAttemptCount(peer.Name) >= Math.Max(1, _config.RebootAlertAttemptCount);
 
     private void ShowUnresolvedWarning(PeerConfig peer)
     {
@@ -534,22 +545,13 @@ public partial class Form1 : Form
             if (!IsPeerProblem(peer))
             {
                 _alertedPeers.Remove(peer.Name);
+                _rebootAttemptCounts.Remove(peer.Name);
                 continue;
             }
 
             AttemptRebootIfDue(peer);
 
-            if (!_lastRebootAttemptUtc.TryGetValue(peer.Name, out var attemptedAt))
-            {
-                continue;
-            }
-
-            if (DateTime.UtcNow - attemptedAt < TimeSpan.FromSeconds(_config.AlertThresholdSeconds))
-            {
-                continue;
-            }
-
-            if (_alertedPeers.Add(peer.Name))
+            if (ShouldShowWarning(peer) && _alertedPeers.Add(peer.Name))
             {
                 ShowUnresolvedWarning(peer);
             }
@@ -664,7 +666,7 @@ public partial class Form1 : Form
                 continue;
             }
 
-            if (DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.AlertThresholdSeconds))
+            if (DateTime.UtcNow - state.LastHeartbeatUtc > TimeSpan.FromSeconds(_config.PeerHeartbeatTimeoutSeconds))
             {
                 row.Cells[2].Value = "타임아웃";
                 row.Cells[3].Value = state.LastHeartbeatUtc.ToLocalTime().ToString("HH:mm:ss");

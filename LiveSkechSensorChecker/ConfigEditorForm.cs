@@ -3,7 +3,8 @@ namespace LiveSkechSensorChecker;
 internal sealed class ConfigEditorForm : Form
 {
     private readonly string _configPath;
-    private readonly int _originalAlertThresholdSeconds;
+    private readonly int _originalPeerHeartbeatTimeoutSeconds;
+    private readonly int _originalRebootAlertAttemptCount;
     private readonly List<PeerConfig> _fixedPeers;
 
     private readonly ComboBox _roleCombo;
@@ -19,7 +20,7 @@ internal sealed class ConfigEditorForm : Form
     private readonly GroupBox _mainGroup;
     private readonly TextBox _launchPathText;
     private readonly NumericUpDown _initialTimeoutSeconds;
-    private readonly NumericUpDown _alertSecondsForMain;
+    private readonly NumericUpDown _rebootAlertAttemptCountForMain;
     private readonly CheckBox _forceCenterClickFallbackCheck;
     private readonly NumericUpDown _centerClickDelaySeconds;
     private readonly NumericUpDown _centerClickX;
@@ -33,7 +34,8 @@ internal sealed class ConfigEditorForm : Form
     public ConfigEditorForm(string configPath, AppConfig config)
     {
         _configPath = configPath;
-        _originalAlertThresholdSeconds = config.AlertThresholdSeconds;
+        _originalPeerHeartbeatTimeoutSeconds = config.PeerHeartbeatTimeoutSeconds;
+        _originalRebootAlertAttemptCount = config.RebootAlertAttemptCount;
         _fixedPeers = config.Peers
             .Select(p => new PeerConfig { Name = p.Name, Ip = p.Ip, Role = p.Role, Processes = [.. p.Processes] })
             .ToList();
@@ -103,7 +105,7 @@ internal sealed class ConfigEditorForm : Form
         var browseButton = new Button { Text = "프로그램 선택", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
         browseButton.Click += BrowseButton_Click;
         _initialTimeoutSeconds = NewRangeUpDown(5, 300);
-        _alertSecondsForMain = NewRangeUpDown(2, 300);
+        _rebootAlertAttemptCountForMain = NewRangeUpDown(1, 20);
         _forceCenterClickFallbackCheck = new CheckBox { Text = "중앙 클릭 fallback 사용", AutoSize = true };
         _centerClickDelaySeconds = NewRangeUpDown(0, 300);
         _centerClickX = NewRangeUpDown(0, 5000);
@@ -113,7 +115,7 @@ internal sealed class ConfigEditorForm : Form
 
         AddGridRow(mainTopTable, 0, "실행 파일 경로", _launchPathText, null, null);
         mainTopTable.Controls.Add(browseButton, 3, 0);
-        AddGridRow(mainTopTable, 1, "초기 점검 타임아웃", _initialTimeoutSeconds, "알림 임계(초)", _alertSecondsForMain);
+        AddGridRow(mainTopTable, 1, "초기 점검 타임아웃", _initialTimeoutSeconds, "알림 시도횟수", _rebootAlertAttemptCountForMain);
 
         var fallbackPanel = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top };
         fallbackPanel.Controls.Add(_forceCenterClickFallbackCheck);
@@ -237,7 +239,7 @@ internal sealed class ConfigEditorForm : Form
         _centerClickY.Value = config.MainBehavior?.CenterClickY ?? 500;
         _enableHelperFocusProcessCheck.Checked = config.MainBehavior?.EnableHelperFocusProcess ?? false;
         _helperFocusDelaySeconds.Value = config.MainBehavior?.HelperFocusDelaySeconds ?? 3;
-        _alertSecondsForMain.Value = config.AlertThresholdSeconds;
+        _rebootAlertAttemptCountForMain.Value = config.RebootAlertAttemptCount;
 
         _peerGrid.Rows.Clear();
         foreach (var peer in config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)))
@@ -291,7 +293,7 @@ internal sealed class ConfigEditorForm : Form
 
         MainBehaviorConfig? mainBehavior = null;
         List<PeerConfig> peers;
-        var alertThreshold = _originalAlertThresholdSeconds;
+        var rebootAlertAttemptCount = _originalRebootAlertAttemptCount;
 
         if (role == "main")
         {
@@ -330,7 +332,7 @@ internal sealed class ConfigEditorForm : Form
             };
 
             peers = [mainPeer, .. subPeers];
-            alertThreshold = (int)_alertSecondsForMain.Value;
+            rebootAlertAttemptCount = (int)_rebootAlertAttemptCountForMain.Value;
         }
         else
         {
@@ -346,7 +348,8 @@ internal sealed class ConfigEditorForm : Form
         {
             Role = role,
             HeartbeatIntervalSeconds = (int)_sendIntervalSeconds.Value,
-            AlertThresholdSeconds = alertThreshold,
+            PeerHeartbeatTimeoutSeconds = _originalPeerHeartbeatTimeoutSeconds,
+            RebootAlertAttemptCount = rebootAlertAttemptCount,
             Udp = udp,
             LocalMonitoring = new LocalMonitoringConfig
             {
