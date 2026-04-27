@@ -480,7 +480,18 @@ public partial class Form1 : Form
     {
         var message = $"{peer.Name}PC에 이상이 발생하여 재부팅을 시도했지만 해결되지 않았습니다. {peer.Name}PC를 점검해주세요.";
         AppendLog(message);
-        MessageBox.Show(message, "모니터링 알림", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        ShowTopMostWarning(message, "모니터링 알림");
+    }
+
+    private static void ShowTopMostWarning(string message, string title)
+    {
+        MessageBox.Show(
+            message,
+            title,
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning,
+            MessageBoxDefaultButton.Button1,
+            MessageBoxOptions.DefaultDesktopOnly);
     }
 
     private void HandleRebootCommand()
