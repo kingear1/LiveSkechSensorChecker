@@ -142,9 +142,21 @@ public partial class Form1 : Form
         }
 
         _lastMainLocalRestartAttemptUtc = now;
-        _launchedTarget = false;
-        AppendLog("MainPC 로컬 프로세스 문제 감지: 실행 파일 재시작 시도");
-        LaunchConfiguredProgramIfNeeded();
+        try
+        {
+            AppendLog("MainPC 로컬 프로세스 문제 감지: PC 재시작 시도");
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "shutdown",
+                Arguments = "/r /t 0 /f",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"MainPC PC 재시작 실행 실패: {ex.Message}");
+        }
     }
 
     private void ScheduleMainLocalRestartAfterDelay(TimeSpan delay)
