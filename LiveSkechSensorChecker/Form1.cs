@@ -124,7 +124,7 @@ public partial class Form1 : Form
 
         var message = "MainPC 로컬 프로세스가 비정상 상태입니다. 로컬 프로세스를 점검해주세요.";
         AppendLog(message);
-        ShowTopMostWarning(message, "모니터링 알림");
+        _ = Task.Run(() => ShowTopMostWarning(message, "모니터링 알림"));
         _mainLocalWarningShown = true;
     }
 
