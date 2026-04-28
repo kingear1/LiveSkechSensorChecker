@@ -22,6 +22,7 @@ public partial class Form1 : Form
     private readonly Dictionary<string, DateTime> _initialProblemDetectedUtc = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _lastMainLocalRestartAttemptUtc = DateTime.MinValue;
     private bool _mainLocalWarningShown;
+    private bool _mainLocalRestartScheduled;
     private int _spinnerFrame;
     private bool _rebootPending;
 
@@ -144,6 +145,51 @@ public partial class Form1 : Form
         _launchedTarget = false;
         AppendLog("MainPC 로컬 프로세스 문제 감지: 실행 파일 재시작 시도");
         LaunchConfiguredProgramIfNeeded();
+    }
+
+    private void ScheduleMainLocalRestartAfterDelay(TimeSpan delay)
+    {
+        if (_mainLocalRestartScheduled)
+        {
+            return;
+        }
+
+        _mainLocalRestartScheduled = true;
+        AppendLog($"MainPC 로컬 프로세스 초기점검 실패: {delay.TotalMinutes:0}분 뒤 재시작 예정");
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(delay, _cts.Token);
+                BeginInvoke(() =>
+                {
+                    if (_cts.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    if (IsMainLocalHealthy())
+                    {
+                        AppendLog("MainPC 로컬 프로세스가 복구되어 예약된 재시작을 취소합니다.");
+                        _mainLocalRestartScheduled = false;
+                        return;
+                    }
+
+                    AttemptMainLocalRestart(force: true);
+                    _mainLocalRestartScheduled = false;
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // 종료 중 취소됨
+            }
+            catch (Exception ex)
+            {
+                BeginInvoke(() => AppendLog($"MainPC 예약 재시작 처리 실패: {ex.Message}"));
+                _mainLocalRestartScheduled = false;
+            }
+        }, _cts.Token);
     }
 
     private void StartReceiver()
@@ -298,11 +344,11 @@ public partial class Form1 : Form
             if (!mainLocalHealthy)
             {
                 SetStatus("초기 점검 중: MainPC 로컬 프로세스 비정상");
-                ShowMainLocalProblemWarningOnce();
             }
             else
             {
                 _mainLocalWarningShown = false;
+                _mainLocalRestartScheduled = false;
             }
 
             await Task.Delay(250, _cts.Token);
@@ -318,7 +364,8 @@ public partial class Form1 : Form
         if (!mainLocalHealthyAtTimeout)
         {
             AppendLog("MainPC 로컬 프로세스 점검 실패");
-            AttemptMainLocalRestart(force: true);
+            ShowMainLocalProblemWarningOnce();
+            ScheduleMainLocalRestartAfterDelay(TimeSpan.FromMinutes(1));
         }
 
         foreach (var peer in targetPeers.Where(IsPeerProblem))
@@ -646,11 +693,13 @@ public partial class Form1 : Form
         {
             SetStatus("SubPC 점검 필요");
             _mainLocalWarningShown = false;
+            _mainLocalRestartScheduled = false;
         }
         else
         {
             SetStatus("모든 모니터링 대상 정상");
             _mainLocalWarningShown = false;
+            _mainLocalRestartScheduled = false;
         }
 
         RefreshGrid();
