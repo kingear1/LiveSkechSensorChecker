@@ -20,6 +20,8 @@ public partial class Form1 : Form
     private readonly Dictionary<string, DateTime> _lastRebootAttemptUtc = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _rebootAttemptCounts = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _initialProblemDetectedUtc = new(StringComparer.OrdinalIgnoreCase);
+    private DateTime _lastMainLocalRestartAttemptUtc = DateTime.MinValue;
+    private bool _mainLocalWarningShown;
     private int _spinnerFrame;
     private bool _rebootPending;
 
@@ -110,6 +112,38 @@ public partial class Form1 : Form
         }
 
         return processNames.All(processName => Process.GetProcessesByName(processName).Length > 0);
+    }
+
+    private void ShowMainLocalProblemWarningOnce()
+    {
+        if (_mainLocalWarningShown)
+        {
+            return;
+        }
+
+        var message = "MainPC 로컬 프로세스가 비정상 상태입니다. 로컬 프로세스를 점검해주세요.";
+        AppendLog(message);
+        ShowTopMostWarning(message, "모니터링 알림");
+        _mainLocalWarningShown = true;
+    }
+
+    private void AttemptMainLocalRestart(bool force = false)
+    {
+        if (!IsMainRole())
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        if (!force && now - _lastMainLocalRestartAttemptUtc < TimeSpan.FromSeconds(30))
+        {
+            return;
+        }
+
+        _lastMainLocalRestartAttemptUtc = now;
+        _launchedTarget = false;
+        AppendLog("MainPC 로컬 프로세스 문제 감지: 실행 파일 재시작 시도");
+        LaunchConfiguredProgramIfNeeded();
     }
 
     private void StartReceiver()
@@ -264,6 +298,11 @@ public partial class Form1 : Form
             if (!mainLocalHealthy)
             {
                 SetStatus("초기 점검 중: MainPC 로컬 프로세스 비정상");
+                ShowMainLocalProblemWarningOnce();
+            }
+            else
+            {
+                _mainLocalWarningShown = false;
             }
 
             await Task.Delay(250, _cts.Token);
@@ -279,6 +318,7 @@ public partial class Form1 : Form
         if (!mainLocalHealthyAtTimeout)
         {
             AppendLog("MainPC 로컬 프로세스 점검 실패");
+            AttemptMainLocalRestart(force: true);
         }
 
         foreach (var peer in targetPeers.Where(IsPeerProblem))
@@ -600,14 +640,17 @@ public partial class Form1 : Form
         if (!mainLocalHealthy)
         {
             SetStatus("MainPC 로컬 프로세스 비정상");
+            ShowMainLocalProblemWarningOnce();
         }
         else if (hasPeerProblem)
         {
             SetStatus("SubPC 점검 필요");
+            _mainLocalWarningShown = false;
         }
         else
         {
             SetStatus("모든 모니터링 대상 정상");
+            _mainLocalWarningShown = false;
         }
 
         RefreshGrid();
