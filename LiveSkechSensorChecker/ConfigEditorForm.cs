@@ -283,10 +283,6 @@ internal sealed class ConfigEditorForm : Form
         }
 
         var localProcesses = SplitProcesses(_localProcessesText.Text);
-        if (localProcesses.Count == 0)
-        {
-            throw new InvalidOperationException("로컬 프로세스를 1개 이상 선택하세요.");
-        }
 
         var udp = new UdpConfig
         {
@@ -309,10 +305,6 @@ internal sealed class ConfigEditorForm : Form
             }
 
             var subPeers = BuildSubPeersFromGrid();
-            if (subPeers.Count == 0)
-            {
-                throw new InvalidOperationException("Main에서는 점검할 Sub PC를 최소 1개 등록해야 합니다.");
-            }
 
             mainBehavior = new MainBehaviorConfig
             {
@@ -342,6 +334,11 @@ internal sealed class ConfigEditorForm : Form
         }
         else
         {
+            if (localProcesses.Count == 0)
+            {
+                throw new InvalidOperationException("Sub 역할은 로컬 프로세스를 1개 이상 선택하세요.");
+            }
+
             if (string.IsNullOrWhiteSpace(udp.MainIp))
             {
                 throw new InvalidOperationException("Sub 역할은 Main IP가 필요합니다.");

@@ -93,6 +93,25 @@ public partial class Form1 : Form
     private int GetAlertThresholdSeconds()
         => Math.Max(1, _config.AlertThresholdSeconds ?? _config.PeerHeartbeatTimeoutSeconds);
 
+    private bool IsMainLocalHealthy()
+    {
+        if (!IsMainRole())
+        {
+            return true;
+        }
+
+        var processNames = _config.LocalMonitoring.Processes
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToList();
+
+        if (processNames.Count == 0)
+        {
+            return true;
+        }
+
+        return processNames.All(processName => Process.GetProcessesByName(processName).Length > 0);
+    }
+
     private void StartReceiver()
     {
         _listener = new UdpClient(_config.Udp.ListenPort);
@@ -209,6 +228,7 @@ public partial class Form1 : Form
         {
             RefreshGrid();
             UpdatePeerCheckIndicators(targetPeers);
+            var mainLocalHealthy = IsMainLocalHealthy();
 
             foreach (var peer in targetPeers)
             {
@@ -230,22 +250,36 @@ public partial class Form1 : Form
                 }
             }
 
-            var allHealthy = targetPeers.All(IsPeerHealthy);
+            var allPeersHealthy = targetPeers.All(IsPeerHealthy);
+            var allHealthy = allPeersHealthy && mainLocalHealthy;
             if (allHealthy)
             {
                 MarkAllPeerChecksAsDone(targetPeers);
-                SetStatus("초기 점검 완료: 모든 SubPC 정상");
+                SetStatus("초기 점검 완료: 모든 모니터링 대상 정상");
                 AppendLog("초기 점검 성공");
                 LaunchConfiguredProgramIfNeeded();
                 return;
+            }
+
+            if (!mainLocalHealthy)
+            {
+                SetStatus("초기 점검 중: MainPC 로컬 프로세스 비정상");
             }
 
             await Task.Delay(250, _cts.Token);
         }
 
         MarkTimeoutPeerChecks(targetPeers);
-        SetStatus("초기 점검 실패: 일부 SubPC 미응답/프로세스 비정상");
+        var mainLocalHealthyAtTimeout = IsMainLocalHealthy();
+        SetStatus(mainLocalHealthyAtTimeout
+            ? "초기 점검 실패: 일부 SubPC 미응답/프로세스 비정상"
+            : "초기 점검 실패: MainPC 로컬 프로세스 또는 SubPC 상태 비정상");
         AppendLog("초기 점검 타임아웃");
+
+        if (!mainLocalHealthyAtTimeout)
+        {
+            AppendLog("MainPC 로컬 프로세스 점검 실패");
+        }
 
         foreach (var peer in targetPeers.Where(IsPeerProblem))
         {
@@ -542,6 +576,8 @@ public partial class Form1 : Form
     private void MonitorPeersAndAlert()
     {
         var targetPeers = _config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)).ToList();
+        var hasPeerProblem = false;
+        var mainLocalHealthy = IsMainLocalHealthy();
 
         foreach (var peer in targetPeers)
         {
@@ -552,12 +588,26 @@ public partial class Form1 : Form
                 continue;
             }
 
+            hasPeerProblem = true;
             AttemptRebootIfDue(peer);
 
             if (ShouldShowWarning(peer) && _alertedPeers.Add(peer.Name))
             {
                 ShowUnresolvedWarning(peer);
             }
+        }
+
+        if (!mainLocalHealthy)
+        {
+            SetStatus("MainPC 로컬 프로세스 비정상");
+        }
+        else if (hasPeerProblem)
+        {
+            SetStatus("SubPC 점검 필요");
+        }
+        else
+        {
+            SetStatus("모든 모니터링 대상 정상");
         }
 
         RefreshGrid();
