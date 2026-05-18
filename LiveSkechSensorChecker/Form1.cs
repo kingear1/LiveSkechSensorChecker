@@ -418,7 +418,7 @@ public partial class Form1 : Form
             return;
         }
 
-        var path = mainBehavior.LaunchOnAllHealthyPath;
+        var path = GetLaunchPathForToday(mainBehavior);
         if (!File.Exists(path))
         {
             AppendLog($"실행 대상 파일 없음: {path}");
@@ -455,6 +455,80 @@ public partial class Form1 : Form
 
         MinimizeToTray();
         AppendLog($"연동 소프트웨어 실행: {path}");
+    }
+
+    private string GetLaunchPathForToday(MainBehaviorConfig mainBehavior)
+    {
+        var launchPathList = (mainBehavior.LaunchPathList ?? [])
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+        if (launchPathList.Count == 0)
+        {
+            return mainBehavior.LaunchOnAllHealthyPath;
+        }
+
+        var todayUtc = DateTime.UtcNow.Date;
+        var lastAdvanced = mainBehavior.LaunchPathLastAdvancedDateUtc?.Date;
+        var currentIndex = mainBehavior.LaunchPathCurrentIndex;
+        if (currentIndex < 0 || currentIndex >= launchPathList.Count)
+        {
+            currentIndex = 0;
+        }
+
+        if (!lastAdvanced.HasValue)
+        {
+            PersistLaunchRotationState(mainBehavior, currentIndex, todayUtc);
+            return launchPathList[currentIndex];
+        }
+
+        if (todayUtc > lastAdvanced.Value)
+        {
+            currentIndex = (currentIndex + 1) % launchPathList.Count;
+            PersistLaunchRotationState(mainBehavior, currentIndex, todayUtc);
+        }
+
+        return launchPathList[currentIndex];
+    }
+
+    private void PersistLaunchRotationState(MainBehaviorConfig mainBehavior, int currentIndex, DateTime todayUtc)
+    {
+        try
+        {
+            var updatedMainBehavior = new MainBehaviorConfig
+            {
+                LaunchOnAllHealthyPath = mainBehavior.LaunchOnAllHealthyPath,
+                LaunchPathList = [.. mainBehavior.LaunchPathList],
+                LaunchPathCurrentIndex = currentIndex,
+                LaunchPathLastAdvancedDateUtc = todayUtc,
+                LaunchArguments = mainBehavior.LaunchArguments,
+                InitialCheckTimeoutSeconds = mainBehavior.InitialCheckTimeoutSeconds,
+                ForceCenterClickFallback = mainBehavior.ForceCenterClickFallback,
+                CenterClickDelaySeconds = mainBehavior.CenterClickDelaySeconds,
+                CenterClickX = mainBehavior.CenterClickX,
+                CenterClickY = mainBehavior.CenterClickY,
+                EnableHelperFocusProcess = mainBehavior.EnableHelperFocusProcess,
+                HelperFocusDelaySeconds = mainBehavior.HelperFocusDelaySeconds
+            };
+
+            var updatedConfig = new AppConfig
+            {
+                Role = _config.Role,
+                Udp = _config.Udp,
+                Peers = _config.Peers,
+                LocalMonitoring = _config.LocalMonitoring,
+                MainBehavior = updatedMainBehavior,
+                HeartbeatIntervalSeconds = _config.HeartbeatIntervalSeconds,
+                AlertThresholdSeconds = _config.AlertThresholdSeconds,
+                PeerHeartbeatTimeoutSeconds = _config.PeerHeartbeatTimeoutSeconds,
+                RebootAlertAttemptCount = _config.RebootAlertAttemptCount
+            };
+
+            updatedConfig.Save(_configPath);
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"실행 파일 순환 인덱스 저장 실패: {ex.Message}");
+        }
     }
 
     private static void TryBringToFront(Process process)

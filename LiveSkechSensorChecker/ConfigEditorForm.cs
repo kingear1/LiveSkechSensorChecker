@@ -5,6 +5,8 @@ internal sealed class ConfigEditorForm : Form
     private readonly string _configPath;
     private readonly int _originalAlertThresholdSeconds;
     private readonly int _originalRebootAlertAttemptCount;
+    private readonly int _originalLaunchPathCurrentIndex;
+    private readonly DateTime? _originalLaunchPathLastAdvancedDateUtc;
     private readonly List<PeerConfig> _fixedPeers;
 
     private readonly ComboBox _roleCombo;
@@ -19,6 +21,7 @@ internal sealed class ConfigEditorForm : Form
 
     private readonly GroupBox _mainGroup;
     private readonly TextBox _launchPathText;
+    private readonly ListBox _launchPathListBox;
     private readonly NumericUpDown _initialTimeoutSeconds;
     private readonly NumericUpDown _alertThresholdSecondsForMain;
     private readonly NumericUpDown _rebootAlertAttemptCountForMain;
@@ -37,6 +40,8 @@ internal sealed class ConfigEditorForm : Form
         _configPath = configPath;
         _originalAlertThresholdSeconds = config.AlertThresholdSeconds ?? config.PeerHeartbeatTimeoutSeconds;
         _originalRebootAlertAttemptCount = config.RebootAlertAttemptCount;
+        _originalLaunchPathCurrentIndex = config.MainBehavior?.LaunchPathCurrentIndex ?? 0;
+        _originalLaunchPathLastAdvancedDateUtc = config.MainBehavior?.LaunchPathLastAdvancedDateUtc;
         _fixedPeers = config.Peers
             .Select(p => new PeerConfig { Name = p.Name, Ip = p.Ip, Role = p.Role, Processes = [.. p.Processes] })
             .ToList();
@@ -95,6 +100,9 @@ internal sealed class ConfigEditorForm : Form
 
         _mainGroup = new GroupBox { Text = "Main 전용 설정", Dock = DockStyle.Top, AutoSize = true };
         var mainLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(8) };
+        var mainTabs = new TabControl { Dock = DockStyle.Top, Height = 360 };
+        var mainGeneralTab = new TabPage("Main 기본 설정");
+        var mainLaunchListTab = new TabPage("실행 파일 순환");
 
         var mainTopTable = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 4, AutoSize = true };
         mainTopTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -148,11 +156,43 @@ internal sealed class ConfigEditorForm : Form
 
         var peerHelpLabel = new Label { AutoSize = true, Text = "Sub PC 이름/IP만 등록" };
 
-        mainLayout.Controls.Add(mainTopTable);
-        mainLayout.Controls.Add(fallbackPanel);
-        mainLayout.Controls.Add(peerLabel);
-        mainLayout.Controls.Add(peerHelpLabel);
-        mainLayout.Controls.Add(_peerGrid);
+        var generalPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(8) };
+        generalPanel.Controls.Add(mainTopTable);
+        generalPanel.Controls.Add(fallbackPanel);
+        generalPanel.Controls.Add(peerLabel);
+        generalPanel.Controls.Add(peerHelpLabel);
+        generalPanel.Controls.Add(_peerGrid);
+        mainGeneralTab.Controls.Add(generalPanel);
+
+        _launchPathListBox = new ListBox { Dock = DockStyle.Fill, Height = 180 };
+        var launchListButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
+        var addLaunchPathButton = new Button { Text = "실행파일 추가", AutoSize = true };
+        var removeLaunchPathButton = new Button { Text = "선택 삭제", AutoSize = true };
+        addLaunchPathButton.Click += AddLaunchPathButton_Click;
+        removeLaunchPathButton.Click += (_, _) =>
+        {
+            if (_launchPathListBox.SelectedIndex >= 0)
+            {
+                _launchPathListBox.Items.RemoveAt(_launchPathListBox.SelectedIndex);
+            }
+        };
+        launchListButtons.Controls.Add(addLaunchPathButton);
+        launchListButtons.Controls.Add(removeLaunchPathButton);
+
+        var launchTabHelp = new Label
+        {
+            AutoSize = true,
+            Text = "리스트 개수에 맞춰 매일 다음 인덱스 실행 (마지막이면 0번으로 순환)"
+        };
+        var launchTabLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(8) };
+        launchTabLayout.Controls.Add(launchTabHelp);
+        launchTabLayout.Controls.Add(launchListButtons);
+        launchTabLayout.Controls.Add(_launchPathListBox);
+        mainLaunchListTab.Controls.Add(launchTabLayout);
+
+        mainTabs.TabPages.Add(mainGeneralTab);
+        mainTabs.TabPages.Add(mainLaunchListTab);
+        mainLayout.Controls.Add(mainTabs);
         _mainGroup.Controls.Add(mainLayout);
 
         var actions = new FlowLayoutPanel { Dock = DockStyle.Top, FlowDirection = FlowDirection.RightToLeft, Height = 42 };
@@ -235,6 +275,14 @@ internal sealed class ConfigEditorForm : Form
         _mainPort.Value = config.Udp.MainPort;
 
         _launchPathText.Text = config.MainBehavior?.LaunchOnAllHealthyPath ?? string.Empty;
+        _launchPathListBox.Items.Clear();
+        foreach (var launchPath in config.MainBehavior?.LaunchPathList ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(launchPath))
+            {
+                _launchPathListBox.Items.Add(launchPath);
+            }
+        }
         _initialTimeoutSeconds.Value = config.MainBehavior?.InitialCheckTimeoutSeconds ?? 20;
         _forceCenterClickFallbackCheck.Checked = config.MainBehavior?.ForceCenterClickFallback ?? false;
         _centerClickDelaySeconds.Value = config.MainBehavior?.CenterClickDelaySeconds ?? 30;
@@ -309,6 +357,9 @@ internal sealed class ConfigEditorForm : Form
             mainBehavior = new MainBehaviorConfig
             {
                 LaunchOnAllHealthyPath = launchPath,
+                LaunchPathList = _launchPathListBox.Items.Cast<object>().Select(x => x.ToString() ?? string.Empty).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                LaunchPathCurrentIndex = _originalLaunchPathCurrentIndex,
+                LaunchPathLastAdvancedDateUtc = _originalLaunchPathLastAdvancedDateUtc,
                 LaunchArguments = string.Empty,
                 InitialCheckTimeoutSeconds = (int)_initialTimeoutSeconds.Value,
                 ForceCenterClickFallback = _forceCenterClickFallbackCheck.Checked,
@@ -363,6 +414,20 @@ internal sealed class ConfigEditorForm : Form
             Peers = peers,
             MainBehavior = mainBehavior
         };
+    }
+
+    private void AddLaunchPathButton_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "순환 실행 파일 추가",
+            Filter = "실행 파일 (*.exe)|*.exe|모든 파일 (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _launchPathListBox.Items.Add(dialog.FileName);
+        }
     }
 
     private string GetExistingMainIpOrDefault()

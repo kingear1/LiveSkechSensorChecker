@@ -68,6 +68,9 @@ internal sealed class LocalMonitoringConfig
 internal sealed class MainBehaviorConfig
 {
     public required string LaunchOnAllHealthyPath { get; init; }
+    public List<string> LaunchPathList { get; init; } = [];
+    public int LaunchPathCurrentIndex { get; init; } = 0;
+    public DateTime? LaunchPathLastAdvancedDateUtc { get; init; }
     public string? LaunchArguments { get; init; }
     public int InitialCheckTimeoutSeconds { get; init; } = 20;
     public bool ForceCenterClickFallback { get; init; } = false;

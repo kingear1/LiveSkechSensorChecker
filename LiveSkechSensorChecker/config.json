@@ -51,6 +51,12 @@
   ],
   "mainBehavior": {
     "launchOnAllHealthyPath": "C:\\LiveSkech\\LiveSkechRunner.exe",
+    "launchPathList": [
+      "C:\\LiveSkech\\Day1.exe",
+      "C:\\LiveSkech\\Day2.exe"
+    ],
+    "launchPathCurrentIndex": 0,
+    "launchPathLastAdvancedDateUtc": null,
     "launchArguments": "",
     "initialCheckTimeoutSeconds": 30,
     "forceCenterClickFallback": false,
