@@ -102,9 +102,9 @@ internal sealed class ConfigEditorForm : Form
         AddGridRow(subTable, 0, "Main IP", _mainIpText, "Main Port", _mainPort);
         _subGroup.Controls.Add(subTable);
 
-        _mainGroup = new GroupBox { Text = "Main 전용 설정", Dock = DockStyle.Top, AutoSize = true };
-        var mainLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(8) };
-        var mainTabs = new TabControl { Dock = DockStyle.Top, Height = 500 };
+        _mainGroup = new GroupBox { Text = "Main 전용 설정", Dock = DockStyle.Top, Height = 560 };
+        var mainLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(8) };
+        var mainTabs = new TabControl { Dock = DockStyle.Fill };
         var mainGeneralTab = new TabPage("Main 기본 설정");
         var mainLaunchListTab = new TabPage("실행 파일 순환");
 
@@ -163,7 +163,7 @@ internal sealed class ConfigEditorForm : Form
         generalPanel.Controls.Add(_peerGrid);
         mainGeneralTab.Controls.Add(generalPanel);
 
-        _launchPathListBox = new ListBox { Dock = DockStyle.Fill, Height = 180 };
+        _launchPathListBox = new ListBox { Dock = DockStyle.Top, Height = 120 };
         var launchListButtons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
         var addLaunchPathButton = new Button { Text = "실행파일 추가", AutoSize = true };
         var removeLaunchPathButton = new Button { Text = "선택 삭제", AutoSize = true };
@@ -209,7 +209,14 @@ internal sealed class ConfigEditorForm : Form
         _weeklyScheduleGrid.Columns[2].FillWeight = 18;
         _weeklyScheduleGrid.Columns[3].FillWeight = 42;
         var scheduleHelp = new Label { AutoSize = true, Text = "이번주(월~일) 일정표 - 매주 월요일 기준으로 갱신" };
-        var launchTabLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(8) };
+        var launchTabLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(8), RowCount = 7 };
+        launchTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        launchTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        launchTabLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 130));
+        launchTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        launchTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        launchTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        launchTabLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         launchTabLayout.Controls.Add(launchTabHelp);
         launchTabLayout.Controls.Add(launchListButtons);
         launchTabLayout.Controls.Add(_launchPathListBox);
