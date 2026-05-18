@@ -11,6 +11,7 @@ namespace LiveSkechSensorChecker;
 
 public partial class Form1 : Form
 {
+    // 앱 전역 설정/상태
     private readonly AppConfig _config;
     private readonly string _configPath;
     private readonly CancellationTokenSource _cts = new();
@@ -457,6 +458,11 @@ public partial class Form1 : Form
         AppendLog($"연동 소프트웨어 실행: {path}");
     }
 
+    /// <summary>
+    /// 오늘 날짜 기준으로 실행해야 할 파일 경로를 계산합니다.
+    /// - 목록이 없으면 단일 경로를 사용합니다.
+    /// - 목록이 있으면 현재 인덱스를 사용하고, 날짜가 넘어갔으면 다음 인덱스로 순환합니다.
+    /// </summary>
     private string GetLaunchPathForToday(MainBehaviorConfig mainBehavior)
     {
         var launchPathList = (mainBehavior.LaunchPathList ?? [])
@@ -490,6 +496,9 @@ public partial class Form1 : Form
         return launchPathList[currentIndex];
     }
 
+    /// <summary>
+    /// 실행 파일 순환 인덱스/갱신일을 config.json에 영구 저장합니다.
+    /// </summary>
     private void PersistLaunchRotationState(MainBehaviorConfig mainBehavior, int currentIndex, DateTime todayUtc)
     {
         try

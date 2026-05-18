@@ -67,7 +67,9 @@ internal sealed class LocalMonitoringConfig
 
 internal sealed class MainBehaviorConfig
 {
+    // 기존 단일 실행 경로 (리스트가 비어있을 때 fallback)
     public required string LaunchOnAllHealthyPath { get; init; }
+    // 실행 파일 순환 목록 및 인덱스/마지막 갱신 일자
     public List<string> LaunchPathList { get; init; } = [];
     public int LaunchPathCurrentIndex { get; init; } = 0;
     public DateTime? LaunchPathLastAdvancedDateUtc { get; init; }

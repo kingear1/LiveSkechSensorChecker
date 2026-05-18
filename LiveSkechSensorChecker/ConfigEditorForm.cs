@@ -2,6 +2,7 @@ namespace LiveSkechSensorChecker;
 
 internal sealed class ConfigEditorForm : Form
 {
+    // 설정 파일 저장 경로 및 기존 값 보존 필드
     private readonly string _configPath;
     private readonly int _originalAlertThresholdSeconds;
     private readonly int _originalRebootAlertAttemptCount;
@@ -20,8 +21,11 @@ internal sealed class ConfigEditorForm : Form
     private readonly NumericUpDown _mainPort;
 
     private readonly GroupBox _mainGroup;
-    private readonly TextBox _launchPathText;
+    // 실행 파일 순환 탭 UI 요소
     private readonly ListBox _launchPathListBox;
+    private readonly Label _currentIndexLabel;
+    private readonly Label _todayProgramLabel;
+    private readonly ListBox _weeklyScheduleListBox;
     private readonly NumericUpDown _initialTimeoutSeconds;
     private readonly NumericUpDown _alertThresholdSecondsForMain;
     private readonly NumericUpDown _rebootAlertAttemptCountForMain;
@@ -110,9 +114,6 @@ internal sealed class ConfigEditorForm : Form
         mainTopTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         mainTopTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-        _launchPathText = new TextBox { Dock = DockStyle.Fill, Width = 420 };
-        var browseButton = new Button { Text = "프로그램 선택", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 0, 8, 0) };
-        browseButton.Click += BrowseButton_Click;
         _initialTimeoutSeconds = NewRangeUpDown(5, 300);
         _alertThresholdSecondsForMain = NewRangeUpDown(2, 300);
         _rebootAlertAttemptCountForMain = NewRangeUpDown(1, 20);
@@ -123,10 +124,8 @@ internal sealed class ConfigEditorForm : Form
         _enableHelperFocusProcessCheck = new CheckBox { Text = "헬퍼 포커스 프로세스 사용", AutoSize = true };
         _helperFocusDelaySeconds = NewRangeUpDown(0, 300);
 
-        AddGridRow(mainTopTable, 0, "실행 파일 경로", _launchPathText, null, null);
-        mainTopTable.Controls.Add(browseButton, 3, 0);
-        AddGridRow(mainTopTable, 1, "초기 점검 타임아웃", _initialTimeoutSeconds, "알림 임계(초)", _alertThresholdSecondsForMain);
-        AddGridRow(mainTopTable, 2, "경고 시도횟수", _rebootAlertAttemptCountForMain, null, null);
+        AddGridRow(mainTopTable, 0, "초기 점검 타임아웃", _initialTimeoutSeconds, "알림 임계(초)", _alertThresholdSecondsForMain);
+        AddGridRow(mainTopTable, 1, "경고 시도횟수", _rebootAlertAttemptCountForMain, null, null);
 
         var fallbackPanel = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top };
         fallbackPanel.Controls.Add(_forceCenterClickFallbackCheck);
@@ -174,6 +173,7 @@ internal sealed class ConfigEditorForm : Form
             if (_launchPathListBox.SelectedIndex >= 0)
             {
                 _launchPathListBox.Items.RemoveAt(_launchPathListBox.SelectedIndex);
+                RefreshLaunchSchedulePreview();
             }
         };
         launchListButtons.Controls.Add(addLaunchPathButton);
@@ -184,10 +184,18 @@ internal sealed class ConfigEditorForm : Form
             AutoSize = true,
             Text = "리스트 개수에 맞춰 매일 다음 인덱스 실행 (마지막이면 0번으로 순환)"
         };
+        _currentIndexLabel = new Label { AutoSize = true, Text = "현재 인덱스: -" };
+        _todayProgramLabel = new Label { AutoSize = true, Text = "오늘 실행: -" };
+        _weeklyScheduleListBox = new ListBox { Dock = DockStyle.Fill, Height = 160 };
+        var scheduleHelp = new Label { AutoSize = true, Text = "이번주(월~일) 일정표 - 매주 월요일 기준으로 갱신" };
         var launchTabLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(8) };
         launchTabLayout.Controls.Add(launchTabHelp);
         launchTabLayout.Controls.Add(launchListButtons);
         launchTabLayout.Controls.Add(_launchPathListBox);
+        launchTabLayout.Controls.Add(_currentIndexLabel);
+        launchTabLayout.Controls.Add(_todayProgramLabel);
+        launchTabLayout.Controls.Add(scheduleHelp);
+        launchTabLayout.Controls.Add(_weeklyScheduleListBox);
         mainLaunchListTab.Controls.Add(launchTabLayout);
 
         mainTabs.TabPages.Add(mainGeneralTab);
@@ -213,20 +221,6 @@ internal sealed class ConfigEditorForm : Form
         BindFromConfig(config);
         ApplyRoleUi();
         _roleCombo.SelectedIndexChanged += (_, _) => ApplyRoleUi();
-    }
-
-    private void BrowseButton_Click(object? sender, EventArgs e)
-    {
-        using var dialog = new OpenFileDialog
-        {
-            Title = "실행할 프로그램 선택",
-            Filter = "실행 파일 (*.exe)|*.exe|모든 파일 (*.*)|*.*"
-        };
-
-        if (dialog.ShowDialog(this) == DialogResult.OK)
-        {
-            _launchPathText.Text = dialog.FileName;
-        }
     }
 
     private static NumericUpDown NewRangeUpDown(int min, int max)
@@ -274,7 +268,6 @@ internal sealed class ConfigEditorForm : Form
         _mainIpText.Text = config.Udp.MainIp ?? string.Empty;
         _mainPort.Value = config.Udp.MainPort;
 
-        _launchPathText.Text = config.MainBehavior?.LaunchOnAllHealthyPath ?? string.Empty;
         _launchPathListBox.Items.Clear();
         foreach (var launchPath in config.MainBehavior?.LaunchPathList ?? [])
         {
@@ -292,6 +285,7 @@ internal sealed class ConfigEditorForm : Form
         _helperFocusDelaySeconds.Value = config.MainBehavior?.HelperFocusDelaySeconds ?? 3;
         _alertThresholdSecondsForMain.Value = config.AlertThresholdSeconds ?? config.PeerHeartbeatTimeoutSeconds;
         _rebootAlertAttemptCountForMain.Value = config.RebootAlertAttemptCount;
+        RefreshLaunchSchedulePreview();
 
         _peerGrid.Rows.Clear();
         foreach (var peer in config.Peers.Where(p => !string.Equals(p.Role, "main", StringComparison.OrdinalIgnoreCase)))
@@ -346,18 +340,22 @@ internal sealed class ConfigEditorForm : Form
 
         if (role == "main")
         {
-            var launchPath = _launchPathText.Text.Trim();
-            if (string.IsNullOrWhiteSpace(launchPath))
+            var launchPathList = _launchPathListBox.Items.Cast<object>()
+                .Select(x => x.ToString() ?? string.Empty)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (launchPathList.Count == 0)
             {
-                throw new InvalidOperationException("Main 역할은 실행 파일 경로가 필요합니다.");
+                throw new InvalidOperationException("Main 역할은 실행 파일 순환 목록에 1개 이상 필요합니다.");
             }
 
             var subPeers = BuildSubPeersFromGrid();
 
             mainBehavior = new MainBehaviorConfig
             {
-                LaunchOnAllHealthyPath = launchPath,
-                LaunchPathList = _launchPathListBox.Items.Cast<object>().Select(x => x.ToString() ?? string.Empty).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                LaunchOnAllHealthyPath = launchPathList[0],
+                LaunchPathList = launchPathList,
                 LaunchPathCurrentIndex = _originalLaunchPathCurrentIndex,
                 LaunchPathLastAdvancedDateUtc = _originalLaunchPathLastAdvancedDateUtc,
                 LaunchArguments = string.Empty,
@@ -427,6 +425,46 @@ internal sealed class ConfigEditorForm : Form
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
             _launchPathListBox.Items.Add(dialog.FileName);
+            RefreshLaunchSchedulePreview();
+        }
+    }
+
+    /// <summary>
+    /// 실행 파일 순환 미리보기(현재 인덱스, 오늘 실행 파일, 이번주 월~일 일정표)를 갱신합니다.
+    /// </summary>
+    private void RefreshLaunchSchedulePreview()
+    {
+        var launchPathList = _launchPathListBox.Items.Cast<object>()
+            .Select(x => x.ToString() ?? string.Empty)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+        if (launchPathList.Count == 0)
+        {
+            _currentIndexLabel.Text = "현재 인덱스: -";
+            _todayProgramLabel.Text = "오늘 실행: -";
+            _weeklyScheduleListBox.Items.Clear();
+            return;
+        }
+
+        var currentIndex = _originalLaunchPathCurrentIndex;
+        if (currentIndex < 0 || currentIndex >= launchPathList.Count)
+        {
+            currentIndex = 0;
+        }
+
+        _currentIndexLabel.Text = $"현재 인덱스: {currentIndex}";
+        _todayProgramLabel.Text = $"오늘 실행: {Path.GetFileName(launchPathList[currentIndex])}";
+
+        var now = DateTime.UtcNow.Date;
+        var dayOffset = ((int)now.DayOfWeek + 6) % 7; // Monday=0
+        var monday = now.AddDays(-dayOffset);
+        _weeklyScheduleListBox.Items.Clear();
+        for (var i = 0; i < 7; i++)
+        {
+            var date = monday.AddDays(i);
+            var indexForDay = (currentIndex + i) % launchPathList.Count;
+            _weeklyScheduleListBox.Items.Add($"{date:MM-dd (ddd)} : [{indexForDay}] {Path.GetFileName(launchPathList[indexForDay])}");
         }
     }
 
