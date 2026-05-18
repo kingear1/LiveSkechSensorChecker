@@ -25,7 +25,7 @@ internal sealed class ConfigEditorForm : Form
     private readonly ListBox _launchPathListBox;
     private readonly Label _currentIndexLabel;
     private readonly Label _todayProgramLabel;
-    private readonly ListBox _weeklyScheduleListBox;
+    private readonly DataGridView _weeklyScheduleGrid;
     private readonly NumericUpDown _initialTimeoutSeconds;
     private readonly NumericUpDown _alertThresholdSecondsForMain;
     private readonly NumericUpDown _rebootAlertAttemptCountForMain;
@@ -104,7 +104,7 @@ internal sealed class ConfigEditorForm : Form
 
         _mainGroup = new GroupBox { Text = "Main 전용 설정", Dock = DockStyle.Top, AutoSize = true };
         var mainLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(8) };
-        var mainTabs = new TabControl { Dock = DockStyle.Top, Height = 360 };
+        var mainTabs = new TabControl { Dock = DockStyle.Top, Height = 500 };
         var mainGeneralTab = new TabPage("Main 기본 설정");
         var mainLaunchListTab = new TabPage("실행 파일 순환");
 
@@ -186,7 +186,28 @@ internal sealed class ConfigEditorForm : Form
         };
         _currentIndexLabel = new Label { AutoSize = true, Text = "현재 인덱스: -" };
         _todayProgramLabel = new Label { AutoSize = true, Text = "오늘 실행: -" };
-        _weeklyScheduleListBox = new ListBox { Dock = DockStyle.Fill, Height = 160 };
+        _weeklyScheduleGrid = new DataGridView
+        {
+            Dock = DockStyle.Fill,
+            Height = 240,
+            AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false,
+            AllowUserToResizeRows = false,
+            ReadOnly = true,
+            RowHeadersVisible = false,
+            MultiSelect = false,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            BorderStyle = BorderStyle.FixedSingle
+        };
+        _weeklyScheduleGrid.Columns.Add("day", "요일");
+        _weeklyScheduleGrid.Columns.Add("date", "날짜");
+        _weeklyScheduleGrid.Columns.Add("index", "인덱스");
+        _weeklyScheduleGrid.Columns.Add("program", "프로그램");
+        _weeklyScheduleGrid.Columns[0].FillWeight = 18;
+        _weeklyScheduleGrid.Columns[1].FillWeight = 22;
+        _weeklyScheduleGrid.Columns[2].FillWeight = 18;
+        _weeklyScheduleGrid.Columns[3].FillWeight = 42;
         var scheduleHelp = new Label { AutoSize = true, Text = "이번주(월~일) 일정표 - 매주 월요일 기준으로 갱신" };
         var launchTabLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(8) };
         launchTabLayout.Controls.Add(launchTabHelp);
@@ -195,7 +216,7 @@ internal sealed class ConfigEditorForm : Form
         launchTabLayout.Controls.Add(_currentIndexLabel);
         launchTabLayout.Controls.Add(_todayProgramLabel);
         launchTabLayout.Controls.Add(scheduleHelp);
-        launchTabLayout.Controls.Add(_weeklyScheduleListBox);
+        launchTabLayout.Controls.Add(_weeklyScheduleGrid);
         mainLaunchListTab.Controls.Add(launchTabLayout);
 
         mainTabs.TabPages.Add(mainGeneralTab);
@@ -443,7 +464,7 @@ internal sealed class ConfigEditorForm : Form
         {
             _currentIndexLabel.Text = "현재 인덱스: -";
             _todayProgramLabel.Text = "오늘 실행: -";
-            _weeklyScheduleListBox.Items.Clear();
+            _weeklyScheduleGrid.Rows.Clear();
             return;
         }
 
@@ -459,12 +480,32 @@ internal sealed class ConfigEditorForm : Form
         var now = DateTime.UtcNow.Date;
         var dayOffset = ((int)now.DayOfWeek + 6) % 7; // Monday=0
         var monday = now.AddDays(-dayOffset);
-        _weeklyScheduleListBox.Items.Clear();
+        _weeklyScheduleGrid.Rows.Clear();
+        var todayRowIndex = -1;
         for (var i = 0; i < 7; i++)
         {
             var date = monday.AddDays(i);
             var indexForDay = (currentIndex + i) % launchPathList.Count;
-            _weeklyScheduleListBox.Items.Add($"{date:MM-dd (ddd)} : [{indexForDay}] {Path.GetFileName(launchPathList[indexForDay])}");
+            var rowIndex = _weeklyScheduleGrid.Rows.Add(
+                date.ToString("ddd"),
+                date.ToString("MM-dd"),
+                indexForDay.ToString(),
+                Path.GetFileName(launchPathList[indexForDay]));
+
+            if (date == now)
+            {
+                todayRowIndex = rowIndex;
+            }
+        }
+
+        if (todayRowIndex >= 0)
+        {
+            var row = _weeklyScheduleGrid.Rows[todayRowIndex];
+            row.DefaultCellStyle.BackColor = Color.FromArgb(255, 246, 214);
+            row.DefaultCellStyle.SelectionBackColor = Color.FromArgb(255, 212, 128);
+            row.DefaultCellStyle.SelectionForeColor = Color.Black;
+            row.DefaultCellStyle.Font = new Font(_weeklyScheduleGrid.Font, FontStyle.Bold);
+            row.DividerHeight = 2;
         }
     }
 
